@@ -5,7 +5,9 @@ from PIL import Image as PILImage
 import shutil,os
 from .utils import CloudflareStorage
 from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
 
+# @csrf_exempt  # 可以使用csrf_exempt装饰器，暂时关闭 CSRF 保护
 def upload_image(request):
     if request.method == 'POST':
         form = ImageForm(request.POST, request.FILES)

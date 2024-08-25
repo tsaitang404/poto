@@ -1,14 +1,107 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Upload Image</title>
+    {% load static %}
+     <link rel="stylesheet" href="{% static 'main.css' %}">
 </head>
+
 <body>
     <h2>Upload Image</h2>
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        {{ form.as_p }}
+        <p>
+            <label for="id_title">Title:</label>
+            <input type="text" name="title" maxlength="100" required aria-invalid="true" id="id_title">
+
+
+        </p>
+        <p>
+            <label for="id_image">Image:</label>
+            <input type="file" name="image" accept="image/*" required aria-invalid="true" id="id_image">
+        <div id="preview"></div>
+        </p>
         <button type="submit">Upload</button>
     </form>
+    <script>
+        // 获取两个Input
+        const fileInput = document.querySelector('input[type="file"]');
+        const titleInput = document.querySelector('input[name="title"]');
+        // 自动填入title
+        document.addEventListener('DOMContentLoaded', function () {
+
+            fileInput.addEventListener('change', function () {
+                if (fileInput.files.length > 0) {
+                    const fileName = fileInput.files[0].name;
+                    const fileNameWithoutExtension = fileName.split('.').slice(0, -1).join('.');
+                    titleInput.value = fileNameWithoutExtension;
+                }
+            });
+        });
+        // 拖拽监听器
+        fileInput.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+
+        fileInput.addEventListener('drop', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                const file = files[0]
+                const fileName = files[0].name;
+                const fileNameWithoutExtension = fileName.split('.').slice(0, -1).join('.');
+                titleInput.value = fileNameWithoutExtension;
+                preview(file)
+            }
+        });
+        // 粘贴监听器
+        document.addEventListener('DOMContentLoaded', function () {
+            // 监听粘贴事件
+            document.addEventListener('paste', function (event) {
+                const items = (event.clipboardData || event.originalEvent.clipboardData).items;
+                for (let index in items) {
+                    const item = items[index];
+                    if (item.kind === 'file') {
+                        const blob = item.getAsFile();
+                        if (blob.type.indexOf('image') !== -1) {
+                            const file = new File([blob], 'pasted-image.png', { type: blob.type });
+                            const fileList = new DataTransfer();
+                            fileList.items.add(file);
+                            fileInput.files = fileList.files;
+                            preview(file)
+                        }
+                    }
+                }
+            });
+        });
+        // 预览监听器
+        fileInput.addEventListener('change', function () {
+            const file = this.files[0];
+            preview(file)
+        });
+        // 预览逻辑
+        function preview(file) {
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const preview = document.getElementById('preview');
+                    const image = new Image();
+                    image.src = e.target.result;
+                    preview.innerHTML = '';
+                    preview.appendChild(image);
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+    </script>
+
+
 </body>
+
 </html>
