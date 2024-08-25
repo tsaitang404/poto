@@ -1,9 +1,9 @@
 # What
-这是一个简单的图床实现，从Web上传图片至Cloudflare R2 存储。
+这是一个简单的图床实现，从Web上传图片至Cloudflare R2 （S3） 存储。
 使用Python Django实现
 
 # 数据库结构
-## images_cloudflarecredential
+## images_configuration
 图床配置表
 ```sqlite
 CREATE TABLE IF NOT EXISTS "images_cloudflarecredential" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "endpoint_url" varchar(200) NOT NULL, "access_key_id" varchar(100) NOT NULL, "secret_access_key" varchar(100) NOT NULL, "bucket" varchar(100) NOT NULL, access_url TEXT);
