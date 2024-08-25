@@ -8,7 +8,7 @@
 </head>
 
 <body>
-    <h2>Upload Image</h2>
+    <h2>上传图像</h2>
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
         <p>
@@ -18,7 +18,7 @@
 
         </p>
         <p>
-            <label for="id_image">Image:</label>
+            <label for="id_image">Image:（可以直接粘贴图像，或拖拽图片至方框内）</label>
             <input type="file" name="image" accept="image/*" required aria-invalid="true" id="id_image">
         <div id="preview"></div>
         </p>
@@ -28,6 +28,7 @@
         // 获取两个Input
         const fileInput = document.querySelector('input[type="file"]');
         const titleInput = document.querySelector('input[name="title"]');
+        const form = document.querySelector('form');
         // 自动填入title
         document.addEventListener('DOMContentLoaded', function () {
 
@@ -40,12 +41,12 @@
             });
         });
         // 拖拽监听器
-        fileInput.addEventListener('dragover', function (e) {
+        form.addEventListener('dragover', function (e) {
             e.preventDefault();
             e.stopPropagation();
         });
 
-        fileInput.addEventListener('drop', function (e) {
+        form.addEventListener('drop', function (e) {
             e.preventDefault();
             e.stopPropagation();
 

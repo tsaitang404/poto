@@ -1,10 +1,34 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-    <title>View Image</title>
+    <title>{{ image.title }}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'main.css' %}">
 </head>
+
 <body>
-    <h2>{{ image.title }}</h2>
-    <img src="{{ image.url }}" alt="{{ image.title }}">
+    <div id="main">
+        <h2>{{ image.title }}</h2>
+        <div id="preview">
+
+            <img src="{{ image.url }}" alt="{{ image.title }}">
+            
+            <label>点击复制： <span id="text-to-copy" onclick="copyText()">{{ image.url }}</span></label>
+        </div>
+    </div>
+    <script>
+        function copyText() {
+            var text = document.getElementById('text-to-copy').innerText;
+            var input = document.createElement('input');
+            input.value = text;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+            alert('已复制到剪贴板：' + text);
+        }
+    </script>
 </body>
+
 </html>

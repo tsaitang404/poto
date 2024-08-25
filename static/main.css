@@ -1,61 +1,79 @@
 body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-        }
+    font-family: Arial, sans-serif;
+    padding: 20px;
+}
 
-        h2 {
-            text-align: center;
-        }
+h2 {
+    text-align: center;
+}
 
-        form {
-            max-width: 400px;
-            margin: 0 auto;
-            padding: 20px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            background-color: #f9f9f9;
-        }
+form {
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
 
-        label {
-            display: block;
-            margin-bottom: 5px;
-        }
+label {
+    display: block;
+    margin-bottom: 5px;
+}
 
-        input[type="text"],
-        input[type="file"] {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ccc;
-            border-radius: 3px;
-            box-sizing: border-box;
-        }
+input[type="text"],
+input[type="file"] {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    box-sizing: border-box;
+}
 
-        #preview {
-            text-align: center;
-            margin-top: 20px;
-            max-width: 100%;
-            /* 设置预览区域的最大宽度为父元素宽度 */
-        }
+#preview {
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 20px;
+    padding-bottom: 10px;
+    max-width: 100%;
+    background-color: azure;
+}
 
-        #preview img {
-            max-width: 100%;
-            /* 设置预览图片的最大宽度为预览区域的宽度 */
-            height: auto;
-            /* 让高度自适应，防止图片变形 */
-        }
+#preview img {
+    width: 90%;
+    height: auto;
+}
 
-        button {
-            display: block;
-            width: 100%;
-            padding: 10px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-        }
+button {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
 
-        button:hover {
-            background-color: #45a049;
-        }
+button:hover {
+    background-color: #45a049;
+}
+
+#main {
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #f9f9f9;background-color: #f9f9f9;
+}
+#text-to-copy {
+    background-color: white;
+}
+label {
+    margin: 10px;
+    background-color: white;
+    border: solid 1px;
+    padding: 10px;
+}
