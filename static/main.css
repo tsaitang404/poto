@@ -34,15 +34,21 @@ input[type="file"] {
 #preview {
     text-align: center;
     margin-top: 20px;
-    padding-top: 20px;
-    padding-bottom: 10px;
+    margin-bottom: 20px;
     max-width: 100%;
     background-color: azure;
+    grid-column: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }
 
 #preview img {
     width: 90%;
     height: auto;
+    margin: 20px;
+
 }
 
 button {
@@ -66,14 +72,23 @@ button:hover {
     padding: 20px;
     border: 1px solid #ccc;
     border-radius: 5px;
-    background-color: #f9f9f9;background-color: #f9f9f9;
+    background-color: #f9f9f9;
+    background-color: #f9f9f9;
 }
+
 #text-to-copy {
     background-color: white;
+    max-width: 100%;
 }
-label {
+
+#label-to-copy {
+    width: 90%;
+    margin-top: 30px;
     margin: 10px;
     background-color: white;
     border: solid 1px;
     padding: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }

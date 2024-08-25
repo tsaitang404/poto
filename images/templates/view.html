@@ -13,9 +13,8 @@
         <div id="preview">
 
             <img src="{{ image.url }}" alt="{{ image.title }}">
-            
-            <label>点击复制： <span id="text-to-copy" onclick="copyText()">{{ image.url }}</span></label>
         </div>
+        <labe id="label-to-copy" onclick="copyText()">点击复制： <span id="text-to-copy" >{{ image.url }}</span></label>
     </div>
     <script>
         function copyText() {
