@@ -44,16 +44,21 @@ def view_image(request, image_id):
     image = Image.objects.get(id=image_id)
     return render(request, 'view.html', {'image': image})
 
+@csrf_exempt 
 def protected(request):
     if request.method == 'POST':
         password = request.POST.get('password', '')
-        if password == Configuration.password:  
+        if password == '':
+            return render(request, 'protected.html')
+        elif password == Configuration.objects.first().password:  
             request.session['password_verified'] = True
-            return HttpResponse("successful!")
+            return redirect('upload_image')  # 密码验证成功后重定向到上传图片页面
         else:
-            return HttpResponse("Incorrect password.")
+            return render(request, 'protected.html', {'error_message': 'Incorrect password.'})
+
     else:
         return render(request, 'protected.html')
+
 
 
 

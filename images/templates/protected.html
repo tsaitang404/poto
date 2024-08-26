@@ -9,7 +9,7 @@
     <form method="post" action="{% url 'protected' %}">
         {% csrf_token %}
         <label for="password">Password:</label>
-        <input type="password" id="password" name="password">
+        <input type="password" id="password" name="password" required>
         <button type="submit">Submit</button>
     </form>
 </body>
