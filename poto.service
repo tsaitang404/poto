@@ -1,0 +1,14 @@
+[Unit]
+Description=poto
+After=network.target
+
+[Service]
+User=root
+Group=root
+WorkingDirectory=/path/to/poto/
+ExecStart=/path/to/python/env /path/to/poto/manage.py runserver 0.0.0.0:8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+

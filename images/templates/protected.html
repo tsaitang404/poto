@@ -6,7 +6,7 @@
     <title>Password Protected Page</title>
 </head>
 <body>
-    <form method="post" action="{% url 'upload_image' %}">
+    <form method="post" action="{% url 'protected' %}">
         {% csrf_token %}
         <label for="password">Password:</label>
         <input type="password" id="password" name="password">

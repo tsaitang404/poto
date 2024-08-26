@@ -21,12 +21,30 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-&xx_ngpa*klew$+cunfkt2wxqrj(134zo7)yri)y8o71!6!3rf'
+# SECRET_KEY = 'django-insecure-&xxx_ngpa*klew$+cunfkt2wxqrj(134zo7)yri)y8o71!6!3rf'
+SECRET_KEY = '7^)m0@mwh#&$f=m_0kc18e^w3@6q4@rysi@3(e+12y6rb*dltl'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-ALLOWED_HOSTS = []
+
+SECURE_HSTS_SECONDS = 31536000  # 设置为一年的秒数，或者根据需要进行调整
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_SSL_REDIRECT = True
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = True
+SECURE_HSTS_PRELOAD = True
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+
+
+ALLOWED_HOSTS = [
+        'poto.aketer.me',
+]
 
 
 # Application definition
@@ -74,14 +92,16 @@ WSGI_APPLICATION = 'poto.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
-
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'poto',
+        'USER': 'poto',
+        'PASSWORD': '123456',
+        'HOST': 'localhost',  # 或者你的数据库主机地址
+        'PORT': '3306',  # 或者你的数据库端口
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
