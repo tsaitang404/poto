@@ -150,9 +150,14 @@ ACCESS_PASSWORD=replace_with_strong_password
 
 ```bash
 npm install
-npm run init
 npm run dev
 ```
+
+说明：
+
+- `npm run dev` 会先自动执行 `npm run init:local`，确保本地 D1 表结构已初始化，再启动 `wrangler dev`。
+- `npm run dev` 会显式覆盖本地运行的 URL 变量为 localhost：`WORKER_BASE_URL=http://localhost:8788`、`PUBLIC_BASE_URL=http://localhost:8788/files`，避免联调时误用线上域名。
+- 如果你只想直接启动 Worker（跳过自动初始化），可以使用 `npm run dev:raw`。
 
 本地测试建议：
 

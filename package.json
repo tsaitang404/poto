@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "npm run init:local && wrangler dev --var WORKER_BASE_URL:http://localhost:8788 --var PUBLIC_BASE_URL:http://localhost:8788/files",
+    "dev:raw": "wrangler dev",
     "test": "node --test test/*.test.mjs",
     "perm:check": "node scripts/check-permissions.mjs",
     "d1:ensure": "node scripts/ensure-d1.mjs",

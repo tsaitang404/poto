@@ -35,6 +35,13 @@ export default {
       return htmlResponse(renderUploadPage(env.SITE_TITLE ?? "Poto"));
     }
 
+    if (request.method === "GET" && url.pathname === "/manage") {
+      if (!isAuthed(request, env)) {
+        return Response.redirect(`${url.origin}/protected`, 302);
+      }
+      return htmlResponse(renderManagePage(env.SITE_TITLE ?? "Poto"));
+    }
+
     if (url.pathname === "/protected" && request.method === "GET") {
       return htmlResponse(renderProtectedPage());
     }
@@ -62,6 +69,14 @@ export default {
       }
       const id = url.pathname.split("/").pop() ?? "";
       return handleDeleteImage(env, id);
+    }
+
+    if (url.pathname.startsWith("/api/images/") && request.method === "PUT") {
+      if (!isAuthed(request, env)) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      const id = url.pathname.split("/").pop() ?? "";
+      return handleUpdateImage(request, env, id);
     }
 
     if (url.pathname.startsWith("/i/") && request.method === "GET") {
@@ -117,16 +132,25 @@ async function handleUpload(request: Request, env: Env, workerBaseUrl: string): 
   const sha256 = await sha256Hex(bytes);
 
   const exists = await env.DB.prepare(
-    "SELECT id FROM images WHERE sha256 = ? AND deleted_at IS NULL"
+    "SELECT id, title, public_url, mime_type, size_bytes, created_at, deleted_at FROM images WHERE sha256 = ?"
   )
     .bind(sha256)
-    .first<{ id: string }>();
+    .first<{ id: string; title: string; public_url: string; mime_type: string; size_bytes: number; created_at: string; deleted_at: string | null }>();
 
-  if (exists) {
-    return json({ error: "duplicate", id: exists.id }, 409);
+  if (exists && !exists.deleted_at) {
+    return json({
+      ok: true,
+      duplicate: true,
+      id: exists.id,
+      title: exists.title,
+      url: exists.public_url,
+      mime_type: exists.mime_type,
+      size_bytes: exists.size_bytes,
+      created_at: exists.created_at,
+    });
   }
 
-  const id = crypto.randomUUID().replaceAll("-", "");
+  const id = exists?.id ?? crypto.randomUUID().replaceAll("-", "");
   const storedMime = normalizeStoredMime(file.type);
   const objectKey = `images/${new Date().toISOString().slice(0, 10)}/${id}.${extensionByMime(storedMime)}`;
   const safeTitle = titleRaw.length > 0 ? titleRaw.slice(0, 120) : file.name.slice(0, 120);
@@ -143,15 +167,35 @@ async function handleUpload(request: Request, env: Env, workerBaseUrl: string): 
     },
   });
 
-  await env.DB.prepare(
-    `INSERT INTO images (id, title, object_key, public_url, mime_type, size_bytes, sha256, r2_etag)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  )
-    .bind(id, safeTitle, objectKey, publicUrl, storedMime, bytes.byteLength, sha256, putResult?.etag ?? null)
-    .run();
+  if (exists?.deleted_at) {
+    await env.DB.prepare(
+      `UPDATE images
+       SET title = ?,
+           object_key = ?,
+           public_url = ?,
+           mime_type = ?,
+           size_bytes = ?,
+           sha256 = ?,
+           r2_etag = ?,
+           deleted_at = NULL,
+           created_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+       WHERE id = ?`
+    )
+      .bind(safeTitle, objectKey, publicUrl, storedMime, bytes.byteLength, sha256, putResult?.etag ?? null, id)
+      .run();
+  } else {
+    await env.DB.prepare(
+      `INSERT INTO images (id, title, object_key, public_url, mime_type, size_bytes, sha256, r2_etag)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+      .bind(id, safeTitle, objectKey, publicUrl, storedMime, bytes.byteLength, sha256, putResult?.etag ?? null)
+      .run();
+  }
 
   return json(
     {
+      ok: true,
+      restored: Boolean(exists?.deleted_at),
       id,
       title: safeTitle,
       url: publicUrl,
@@ -243,6 +287,39 @@ async function handleDeleteImage(env: Env, id: string): Promise<Response> {
     .run();
 
   return json({ ok: true });
+}
+
+async function handleUpdateImage(request: Request, env: Env, id: string): Promise<Response> {
+  if (!id) {
+    return json({ error: "invalid_id" }, 400);
+  }
+
+  let payload: { title?: unknown };
+  try {
+    payload = (await request.json()) as { title?: unknown };
+  } catch {
+    return json({ error: "invalid_json" }, 400);
+  }
+
+  const titleRaw = String(payload.title ?? "").trim();
+  if (!titleRaw) {
+    return json({ error: "title_required" }, 400);
+  }
+
+  const safeTitle = titleRaw.slice(0, 120);
+  const exists = await env.DB.prepare("SELECT id, deleted_at FROM images WHERE id = ?")
+    .bind(id)
+    .first<{ id: string; deleted_at: string | null }>();
+
+  if (!exists || exists.deleted_at) {
+    return json({ error: "not_found" }, 404);
+  }
+
+  await env.DB.prepare("UPDATE images SET title = ? WHERE id = ?")
+    .bind(safeTitle, id)
+    .run();
+
+  return json({ ok: true, id, title: safeTitle });
 }
 
 async function handleViewPage(env: Env, id: string): Promise<Response> {
@@ -430,7 +507,28 @@ function renderUploadPage(title: string): string {
       padding: 24px;
       animation: rise .5s ease-out;
     }
-    h1 { margin-top: 0; }
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    h1 { margin: 0; }
+    .manage-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      color: var(--primary);
+      text-decoration: none;
+      background: #fff7ee;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+    .manage-link:hover { background: #fbe9d7; }
     .drop {
       border: 2px dashed var(--line);
       border-radius: 12px;
@@ -461,8 +559,9 @@ function renderUploadPage(title: string): string {
       font-size: 13px;
       line-height: 1.5;
     }
-    #preview img { max-width: 100%; max-height: 320px; object-fit: contain; border-radius: 10px; margin-top: 12px; display: block; }
-    #result { margin-top: 8px; font-size: 13px; word-break: break-all; color: #5a4a42; }
+    #preview { text-align: center; }
+    #preview img { max-width: 100%; max-height: 320px; object-fit: contain; border-radius: 10px; margin: 12px auto 0; display: block; }
+    #result { margin-top: 8px; font-size: 13px; word-break: break-all; color: #5a4a42; text-align: center; }
     @keyframes rise {
       from { opacity: 0; transform: translateY(12px); }
       to { opacity: 1; transform: translateY(0); }
@@ -471,7 +570,10 @@ function renderUploadPage(title: string): string {
 </head>
 <body>
   <main class="card">
-    <h1>图床上传</h1>
+    <div class="card-head">
+      <h1>图床上传</h1>
+      <a class="manage-link" href="/manage">进入管理页</a>
+    </div>
     <form id="uploadForm">
       <div class="drop" id="dropZone">拖拽图片到这里，或点击下方选择文件</div>
       <p class="hint">JPEG/PNG/静态图会自动转为 WebP；GIF 会自动转为动态 WebP；SVG 原样上传但会做安全检查。默认大小限制：静态图源文件 10MB，GIF 源文件 20MB，最终 WebP 20MB，SVG 1MB。</p>
@@ -536,6 +638,14 @@ function renderUploadPage(title: string): string {
       const body = await res.json();
       if (!res.ok) {
         result.textContent = '上传失败: ' + (body.error || 'unknown');
+        return;
+      }
+      if (body.duplicate) {
+        result.innerHTML = '重复图片：已存在记录 <a href="' + body.url + '" target="_blank" rel="noreferrer">' + body.url + '</a><br/>查看页: <a href="/i/' + body.id + '" target="_blank" rel="noreferrer">/i/' + body.id + '</a>';
+        return;
+      }
+      if (body.restored) {
+        result.innerHTML = '图片曾被删除，已恢复并覆盖: <a href="' + body.url + '" target="_blank" rel="noreferrer">' + body.url + '</a><br/>查看页: <a href="/i/' + body.id + '" target="_blank" rel="noreferrer">/i/' + body.id + '</a>';
         return;
       }
       result.innerHTML = '上传成功: <a href="' + body.url + '" target="_blank" rel="noreferrer">' + body.url + '</a><br/>查看页: <a href="/i/' + body.id + '" target="_blank" rel="noreferrer">/i/' + body.id + '</a>';
@@ -696,6 +806,334 @@ function renderUploadPage(title: string): string {
         maxUploadBytes: MAX_WEBP_UPLOAD_BYTES,
         label: file.type === 'image/webp' ? 'WebP' : '静态图',
       };
+    }
+  </script>
+</body>
+</html>`;
+}
+
+function renderManagePage(title: string): string {
+  return `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(title)} 管理</title>
+  <style>
+    :root {
+      --bg: #f7efe2;
+      --card: #fffdf8;
+      --text: #2a1f1a;
+      --line: #e5d8c5;
+      --primary: #8f3f23;
+      --primary-soft: #f4e1d3;
+      --danger: #b42318;
+      --muted: #6a5548;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 8% 5%, #fff6e7 0, transparent 34%),
+        radial-gradient(circle at 90% 88%, #efd4b2 0, transparent 26%),
+        var(--bg);
+      color: var(--text);
+      font-family: "Noto Sans SC", sans-serif;
+      padding: 18px;
+    }
+    .wrap {
+      width: min(1040px, 100%);
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 22px 56px rgba(70, 44, 28, 0.12);
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .title h2 { margin: 0; font-size: 24px; }
+    .subtitle { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .status-pill {
+      background: var(--primary-soft);
+      color: var(--primary);
+      border: 1px solid #e5c9b3;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      line-height: 1;
+      white-space: nowrap;
+      min-height: 28px;
+      display: inline-flex;
+      align-items: center;
+    }
+    .control, .tool-btn {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--text);
+      min-height: 36px;
+    }
+    .control {
+      width: min(260px, 70vw);
+      padding: 0 12px;
+    }
+    .tool-btn {
+      padding: 0 12px;
+      cursor: pointer;
+    }
+    .list {
+      display: grid;
+      gap: 14px;
+      margin-top: 12px;
+    }
+    .item {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      display: grid;
+      grid-template-columns: 118px 1fr;
+      gap: 12px;
+      align-items: start;
+      background: #fff;
+    }
+    .thumb-wrap {
+      width: 118px;
+      height: 84px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      display: grid;
+      place-items: center;
+      background: #fff;
+      overflow: hidden;
+    }
+    .thumb {
+      width: 100%;
+      height: 100%;
+      border-radius: 8px;
+      object-fit: contain;
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .meta { font-size: 12px; color: var(--muted); }
+    .id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #866753; }
+    input[type="text"] {
+      width: 100%;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      border: none;
+      border-radius: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      color: #fff;
+      background: var(--primary);
+      font-size: 13px;
+      line-height: 1;
+    }
+    .btn.danger { background: var(--danger); }
+    .view-link {
+      color: var(--primary);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 7px 0;
+    }
+    .view-link:hover { text-decoration: underline; }
+    .empty {
+      border: 1px dashed #dfcdbb;
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+      background: #fffaf2;
+    }
+    a { color: var(--primary); }
+    @media (max-width: 680px) {
+      .wrap { padding: 14px; }
+      .item {
+        grid-template-columns: 1fr;
+      }
+      .thumb-wrap {
+        width: 100%;
+        height: 180px;
+      }
+      .control { width: 100%; }
+      .toolbar { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="topbar">
+      <div class="title">
+        <h2>图片管理</h2>
+        <p class="subtitle">在这里快速预览、改标题、删除历史图片</p>
+      </div>
+      <div class="toolbar">
+        <span id="status" class="status-pill">加载中...</span>
+        <input id="filter" class="control" type="search" placeholder="搜索标题或 ID" />
+        <button id="reload" class="tool-btn" type="button">刷新</button>
+        <a href="/">返回上传页</a>
+      </div>
+    </div>
+    <section id="list" class="list"></section>
+  </main>
+  <script>
+    const list = document.getElementById('list');
+    const status = document.getElementById('status');
+    const filter = document.getElementById('filter');
+    const reload = document.getElementById('reload');
+    let allItems = [];
+
+    loadImages();
+    filter.addEventListener('input', renderCurrent);
+    reload.addEventListener('click', loadImages);
+
+    async function loadImages() {
+      status.textContent = '正在获取数据...';
+      const res = await fetch('/api/images');
+      const body = await res.json();
+      if (!res.ok) {
+        status.textContent = '加载失败: ' + (body.error || 'unknown');
+        return;
+      }
+
+      allItems = body.items || [];
+      renderCurrent();
+    }
+
+    function renderCurrent() {
+      const keyword = (filter.value || '').trim().toLowerCase();
+      const items = keyword
+        ? allItems.filter((item) => {
+            const title = String(item.title || '').toLowerCase();
+            const id = String(item.id || '').toLowerCase();
+            return title.includes(keyword) || id.includes(keyword);
+          })
+        : allItems;
+
+      status.textContent = '显示 ' + items.length + ' / ' + allItems.length + ' 张图片';
+      list.innerHTML = '';
+
+      if (!items.length) {
+        list.innerHTML = '<div class="empty">没有匹配结果，试试换个关键词。</div>';
+        return;
+      }
+
+      for (const item of items) {
+        const box = document.createElement('article');
+        box.className = 'item';
+        const safeTitle = escapeHtml(item.title || '');
+        const safeId = escapeHtml(String(item.id || '').slice(0, 12));
+        box.innerHTML =
+          '<div class="thumb-wrap"><img class="thumb" src="' + escapeAttr(item.public_url) + '" alt="thumb" loading="lazy" /></div>' +
+          '<div>' +
+            '<div class="row"><span class="meta">' + escapeHtml(item.mime_type || 'unknown') + ' · ' + fmtSize(item.size_bytes || 0) + ' · ' + fmtDate(item.created_at || '') + '</span><span class="meta id">' + safeId + '</span></div>' +
+            '<input type="text" maxlength="120" value="' + safeTitle + '" data-id="' + item.id + '" />' +
+            '<div class="actions">' +
+              '<button class="btn" data-action="save" data-id="' + item.id + '">保存标题</button>' +
+              '<button class="btn danger" data-action="delete" data-id="' + item.id + '">删除</button>' +
+              '<a class="view-link" href="/i/' + item.id + '" target="_blank" rel="noreferrer">查看页</a>' +
+            '</div>' +
+          '</div>';
+        list.appendChild(box);
+      }
+    }
+
+    list.addEventListener('click', async (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLElement)) return;
+      const action = target.dataset.action;
+      const id = target.dataset.id;
+      if (!action || !id) return;
+
+      if (action === 'save') {
+        const input = list.querySelector('input[data-id="' + id + '"]');
+        const nextTitle = input ? input.value.trim() : '';
+        if (!nextTitle) {
+          status.textContent = '标题不能为空';
+          return;
+        }
+        status.textContent = '保存中...';
+        const res = await fetch('/api/images/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: nextTitle }),
+        });
+        const body = await res.json();
+        if (!res.ok) {
+          status.textContent = '保存失败: ' + (body.error || 'unknown');
+          return;
+        }
+        status.textContent = '保存成功';
+      }
+
+      if (action === 'delete') {
+        if (!confirm('确定删除这张图片吗？此操作不可恢复。')) return;
+        status.textContent = '删除中...';
+        const res = await fetch('/api/images/' + id, { method: 'DELETE' });
+        const body = await res.json();
+        if (!res.ok) {
+          status.textContent = '删除失败: ' + (body.error || 'unknown');
+          return;
+        }
+        status.textContent = '删除成功';
+        await loadImages();
+      }
+    });
+
+    function fmtSize(bytes) {
+      return bytes >= 1024 * 1024
+        ? (bytes / 1024 / 1024).toFixed(2) + ' MB'
+        : (bytes / 1024).toFixed(1) + ' KB';
+    }
+
+    function fmtDate(input) {
+      if (!input) return '-';
+      const date = new Date(input);
+      if (Number.isNaN(date.getTime())) return input;
+      return date.toLocaleString('zh-CN', { hour12: false });
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function escapeAttr(str) {
+      return escapeHtml(str);
     }
   </script>
 </body>
