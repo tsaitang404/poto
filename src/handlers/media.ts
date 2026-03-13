@@ -134,16 +134,50 @@ export async function handleServeFile(env: Env, objectKey: string): Promise<Resp
   return new Response(object.body, { status: 200, headers });
 }
 
-export async function handleListImages(env: Env): Promise<Response> {
+export async function handleListImages(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const page = clampPositiveInt(url.searchParams.get("page"), 1);
+  const pageSize = clampPositiveInt(url.searchParams.get("page_size"), 10, 500);
+  const offset = (page - 1) * pageSize;
+
+  const countRow = await env.DB.prepare(
+    `SELECT COUNT(*) AS total
+     FROM images
+     WHERE deleted_at IS NULL`
+  ).first<{ total: number | string }>();
+
+  const total = Number(countRow?.total ?? 0);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const safeOffset = (safePage - 1) * pageSize;
+
   const result = await env.DB.prepare(
     `SELECT id, title, public_url, mime_type, size_bytes, created_at
      FROM images
      WHERE deleted_at IS NULL
      ORDER BY created_at DESC
-     LIMIT 100`
-  ).all();
+     LIMIT ? OFFSET ?`
+  )
+    .bind(pageSize, safeOffset)
+    .all();
 
-  return json({ items: result.results ?? [] });
+  return json({
+    items: result.results ?? [],
+    page: safePage,
+    page_size: pageSize,
+    total,
+    total_pages: totalPages,
+    has_next: safePage < totalPages,
+    has_prev: safePage > 1,
+  });
+}
+
+function clampPositiveInt(value: string | null, fallback: number, max = Number.POSITIVE_INFINITY): number {
+  const parsed = Number.parseInt(value ?? "", 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback;
+  }
+  return Math.min(parsed, max);
 }
 
 export async function handleGetImage(env: Env, id: string): Promise<Response> {

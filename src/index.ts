@@ -67,7 +67,7 @@ export default {
     }
 
     if (url.pathname === "/api/images" && request.method === "GET") {
-      return handleListImages(env);
+      return handleListImages(request, env);
     }
 
     if (url.pathname.startsWith("/api/images/") && request.method === "GET") {

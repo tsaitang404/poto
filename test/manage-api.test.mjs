@@ -26,6 +26,55 @@ test("GET /manage returns HTML when authorized", async () => {
 
   assert.equal(response.status, 200);
   assert.match(html, /图片管理/);
+  assert.match(html, /上一页/);
+  assert.match(html, /下一页/);
+});
+
+test("GET /api/images returns pagination metadata and paged items", async () => {
+  const env = createEnv({
+    images: {
+      "img-1": buildImage("img-1", "2026-03-14T10:00:00.000Z"),
+      "img-2": buildImage("img-2", "2026-03-14T09:00:00.000Z"),
+      "img-3": buildImage("img-3", "2026-03-14T08:00:00.000Z"),
+    },
+  });
+  const request = new Request("https://example.com/api/images?page=2&page_size=2", {
+    method: "GET",
+  });
+
+  const response = await worker.fetch(request, env);
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.page, 2);
+  assert.equal(body.page_size, 2);
+  assert.equal(body.total, 3);
+  assert.equal(body.total_pages, 2);
+  assert.equal(body.has_prev, true);
+  assert.equal(body.has_next, false);
+  assert.equal(body.items.length, 1);
+  assert.equal(body.items[0].id, "img-3");
+});
+
+test("GET /api/images clamps invalid pagination params", async () => {
+  const env = createEnv({
+    images: {
+      "img-1": buildImage("img-1", "2026-03-14T10:00:00.000Z"),
+      "img-2": buildImage("img-2", "2026-03-14T09:00:00.000Z"),
+    },
+  });
+  const request = new Request("https://example.com/api/images?page=0&page_size=999", {
+    method: "GET",
+  });
+
+  const response = await worker.fetch(request, env);
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.page, 1);
+  assert.equal(body.page_size, 500);
+  assert.equal(body.total, 2);
+  assert.equal(body.items.length, 2);
 });
 
 test("PUT /api/images/:id returns 401 when unauthorized", async () => {
@@ -229,6 +278,19 @@ function createEnv(seed = { images: {} }) {
   };
 }
 
+function buildImage(id, createdAt) {
+  return {
+    id,
+    title: id,
+    object_key: `images/2026-03-14/${id}.webp`,
+    public_url: `https://example.com/files/images/2026-03-14/${id}.webp`,
+    mime_type: "image/webp",
+    size_bytes: 1234,
+    deleted_at: null,
+    created_at: createdAt,
+  };
+}
+
 function createMockDB(state) {
   return {
     prepare(query) {
@@ -245,6 +307,10 @@ function createStatement(query, state) {
       return this;
     },
     async first() {
+      if (query.includes("SELECT COUNT(*) AS total") && query.includes("FROM images")) {
+        const total = Object.values(state.images).filter((row) => !row.deleted_at).length;
+        return { total };
+      }
       if (query.includes("SELECT id, deleted_at FROM images WHERE id = ?")) {
         const id = values[0];
         return state.images[id] ?? null;
@@ -280,6 +346,22 @@ function createStatement(query, state) {
       throw new Error(`Unhandled run() query: ${query}`);
     },
     async all() {
+      if (query.includes("SELECT id, title, public_url, mime_type, size_bytes, created_at") && query.includes("LIMIT ? OFFSET ?")) {
+        const [limit, offset] = values;
+        const rows = Object.values(state.images)
+          .filter((row) => !row.deleted_at)
+          .sort((left, right) => String(right.created_at).localeCompare(String(left.created_at)))
+          .slice(offset, offset + limit)
+          .map((row) => ({
+            id: row.id,
+            title: row.title,
+            public_url: row.public_url,
+            mime_type: row.mime_type,
+            size_bytes: row.size_bytes,
+            created_at: row.created_at,
+          }));
+        return { results: rows };
+      }
       throw new Error(`Unhandled all() query: ${query}`);
     },
   };
