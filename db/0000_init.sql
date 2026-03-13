@@ -13,3 +13,10 @@ CREATE TABLE IF NOT EXISTS images (
 
 CREATE INDEX IF NOT EXISTS idx_images_created_at ON images(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_images_deleted_at ON images(deleted_at);
+
+CREATE TABLE IF NOT EXISTS api_tokens (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  token_hash TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  rotated_at TEXT NOT NULL
+);

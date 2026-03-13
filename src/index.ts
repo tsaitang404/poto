@@ -20,6 +20,12 @@ type ImageRow = {
   deleted_at: string | null;
 };
 
+type ApiTokenRow = {
+  token_hash: string;
+  created_at: string;
+  rotated_at: string;
+};
+
 const MAX_WEBP_UPLOAD_BYTES = 20 * 1024 * 1024;
 const MAX_SVG_UPLOAD_BYTES = 1 * 1024 * 1024;
 
@@ -52,6 +58,20 @@ export default {
 
     if (url.pathname === "/api/upload" && request.method === "POST") {
       return handleUpload(request, env, workerBaseUrl);
+    }
+
+    if (url.pathname === "/api/token" && request.method === "GET") {
+      if (!isAuthed(request, env)) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      return handleGetApiToken(env);
+    }
+
+    if (url.pathname === "/api/token/rotate" && request.method === "POST") {
+      if (!isAuthed(request, env)) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      return handleRotateApiToken(env);
     }
 
     if (url.pathname === "/api/images" && request.method === "GET") {
@@ -94,7 +114,7 @@ export default {
 };
 
 async function handleUpload(request: Request, env: Env, workerBaseUrl: string): Promise<Response> {
-  if (!isAuthed(request, env)) {
+  if (!(await isUploadAuthed(request, env))) {
     return json({ error: "unauthorized" }, 401);
   }
 
@@ -322,6 +342,52 @@ async function handleUpdateImage(request: Request, env: Env, id: string): Promis
   return json({ ok: true, id, title: safeTitle });
 }
 
+async function handleGetApiToken(env: Env): Promise<Response> {
+  const row = await env.DB.prepare(
+    "SELECT token_hash, created_at, rotated_at FROM api_tokens WHERE id = 1"
+  ).first<ApiTokenRow>();
+
+  if (!row) {
+    return json({ configured: false });
+  }
+
+  return json({
+    configured: true,
+    created_at: row.created_at,
+    rotated_at: row.rotated_at,
+  });
+}
+
+async function handleRotateApiToken(env: Env): Promise<Response> {
+  const token = generateApiToken();
+  const tokenHash = await hashApiToken(token);
+  const now = new Date().toISOString();
+
+  const exists = await env.DB.prepare("SELECT token_hash, created_at, rotated_at FROM api_tokens WHERE id = 1")
+    .first<ApiTokenRow>();
+
+  if (exists) {
+    await env.DB.prepare(
+      "UPDATE api_tokens SET token_hash = ?, rotated_at = ? WHERE id = 1"
+    )
+      .bind(tokenHash, now)
+      .run();
+  } else {
+    await env.DB.prepare(
+      "INSERT INTO api_tokens (id, token_hash, created_at, rotated_at) VALUES (1, ?, ?, ?)"
+    )
+      .bind(tokenHash, now, now)
+      .run();
+  }
+
+  return json({
+    ok: true,
+    token,
+    created_at: exists?.created_at ?? now,
+    rotated_at: now,
+  });
+}
+
 async function handleViewPage(env: Env, id: string): Promise<Response> {
   const row = await env.DB.prepare(
     "SELECT id, title, public_url, created_at FROM images WHERE id = ? AND deleted_at IS NULL"
@@ -356,6 +422,52 @@ function isAuthed(request: Request, env: Env): boolean {
     return true;
   }
   return false;
+}
+
+async function isUploadAuthed(request: Request, env: Env): Promise<boolean> {
+  if (isAuthed(request, env)) {
+    return true;
+  }
+
+  const token = extractApiToken(request);
+  if (!token) {
+    return false;
+  }
+
+  const tokenHash = await hashApiToken(token);
+  const row = await env.DB.prepare("SELECT token_hash, created_at, rotated_at FROM api_tokens WHERE id = 1")
+    .first<ApiTokenRow>();
+
+  if (!row) {
+    return false;
+  }
+
+  return row.token_hash === tokenHash;
+}
+
+function extractApiToken(request: Request): string | null {
+  const auth = request.headers.get("authorization") ?? request.headers.get("Authorization") ?? "";
+  const match = auth.match(/^Bearer\s+(.+)$/i);
+  if (match && match[1]) {
+    return match[1].trim();
+  }
+  const custom = request.headers.get("x-api-token") ?? request.headers.get("X-API-Token") ?? "";
+  const token = custom.trim();
+  return token || null;
+}
+
+async function hashApiToken(token: string): Promise<string> {
+  return sha256Hex(new TextEncoder().encode(token));
+}
+
+function generateApiToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  let binary = "";
+  for (const b of bytes) {
+    binary += String.fromCharCode(b);
+  }
+  const base64 = btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  return `poto_${base64}`;
 }
 
 function isAcceptedUploadMime(mime: string): boolean {
@@ -899,6 +1011,52 @@ function renderManagePage(title: string): string {
       gap: 14px;
       margin-top: 12px;
     }
+    .token-panel {
+      border: 1px solid #e7d8c8;
+      border-radius: 12px;
+      padding: 12px;
+      background: #fff8ef;
+      margin-bottom: 12px;
+    }
+    .token-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    .token-title {
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .token-hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin: 0;
+      line-height: 1.45;
+    }
+    .token-value {
+      margin-top: 8px;
+      padding: 10px;
+      border-radius: 8px;
+      background: #fff;
+      border: 1px solid #ecdccc;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      word-break: break-all;
+      display: none;
+    }
+    .token-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .token-meta {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
     .item {
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -1004,6 +1162,18 @@ function renderManagePage(title: string): string {
         <a href="/">返回上传页</a>
       </div>
     </div>
+    <section class="token-panel">
+      <div class="token-head">
+        <strong class="token-title">上传 API Token</strong>
+        <div class="token-actions">
+          <button id="rotateToken" class="tool-btn" type="button">生成 Token</button>
+          <button id="copyToken" class="tool-btn" type="button" disabled>复制 Token</button>
+        </div>
+      </div>
+      <p class="token-hint">用于无 Cookie 场景调用上传接口。请求头可用 <code>Authorization: Bearer &lt;token&gt;</code> 或 <code>X-API-Token: &lt;token&gt;</code>。</p>
+      <div id="tokenMeta" class="token-meta">正在读取 Token 状态...</div>
+      <div id="tokenValue" class="token-value"></div>
+    </section>
     <section id="list" class="list"></section>
   </main>
   <script>
@@ -1011,11 +1181,19 @@ function renderManagePage(title: string): string {
     const status = document.getElementById('status');
     const filter = document.getElementById('filter');
     const reload = document.getElementById('reload');
+    const rotateToken = document.getElementById('rotateToken');
+    const copyToken = document.getElementById('copyToken');
+    const tokenMeta = document.getElementById('tokenMeta');
+    const tokenValue = document.getElementById('tokenValue');
     let allItems = [];
+    let latestToken = '';
 
     loadImages();
+    loadTokenInfo();
     filter.addEventListener('input', renderCurrent);
     reload.addEventListener('click', loadImages);
+    rotateToken.addEventListener('click', rotateUploadToken);
+    copyToken.addEventListener('click', copyUploadToken);
 
     async function loadImages() {
       status.textContent = '正在获取数据...';
@@ -1066,6 +1244,50 @@ function renderManagePage(title: string): string {
           '</div>';
         list.appendChild(box);
       }
+    }
+
+    async function loadTokenInfo() {
+      const res = await fetch('/api/token');
+      const body = await res.json();
+      if (!res.ok) {
+        tokenMeta.textContent = '读取 Token 状态失败: ' + (body.error || 'unknown');
+        return;
+      }
+      if (!body.configured) {
+        rotateToken.textContent = '生成 Token';
+        tokenMeta.textContent = '当前未配置 Token。点击“生成 Token”创建。';
+        return;
+      }
+      rotateToken.textContent = '轮换 Token';
+      tokenMeta.textContent = '已配置 Token，最近轮换时间：' + fmtDate(body.rotated_at || body.created_at || '');
+    }
+
+    async function rotateUploadToken() {
+      if (!confirm('确认生成新 Token 吗？旧 Token 将立即失效。')) {
+        return;
+      }
+      status.textContent = '正在生成 Token...';
+      const res = await fetch('/api/token/rotate', { method: 'POST' });
+      const body = await res.json();
+      if (!res.ok) {
+        status.textContent = 'Token 生成失败: ' + (body.error || 'unknown');
+        return;
+      }
+      latestToken = body.token || '';
+      tokenValue.textContent = latestToken;
+      tokenValue.style.display = latestToken ? 'block' : 'none';
+      copyToken.disabled = !latestToken;
+      rotateToken.textContent = '轮换 Token';
+      tokenMeta.textContent = 'Token 已轮换，最近轮换时间：' + fmtDate(body.rotated_at || '');
+      status.textContent = 'Token 生成成功';
+    }
+
+    async function copyUploadToken() {
+      if (!latestToken) {
+        return;
+      }
+      await navigator.clipboard.writeText(latestToken);
+      status.textContent = 'Token 已复制';
     }
 
     list.addEventListener('click', async (e) => {

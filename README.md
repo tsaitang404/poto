@@ -92,6 +92,8 @@ CREATE INDEX IF NOT EXISTS idx_images_deleted_at ON images(deleted_at);
 - `GET /protected` 密码页
 - `POST /protected` 密码验证
 - `POST /api/upload` 上传图片
+- `GET /api/token` 查看上传 API Token 状态（需管理登录）
+- `POST /api/token/rotate` 生成/轮换上传 API Token（需管理登录）
 - `GET /api/images` 最近 100 条图片记录
 - `GET /api/images/:id` 查询单图元数据
 - `DELETE /api/images/:id` 删除图片（软删除 + R2 删除）
@@ -100,6 +102,9 @@ CREATE INDEX IF NOT EXISTS idx_images_deleted_at ON images(deleted_at);
 上传接口约束：
 
 - `POST /api/upload` 仅接受 `image/webp`、`image/svg+xml`。
+- 鉴权支持两种方式：
+	- 浏览器登录态 Cookie（`poto_auth=1`）
+	- API Token（`Authorization: Bearer <token>` 或 `X-API-Token: <token>`）
 - 使用系统自带上传页时，静态图会自动转 WebP，GIF 会自动转动态 WebP，SVG 原样提交。
 - 直连接口时同样要满足大小限制：WebP 20MB、SVG 1MB。
 
