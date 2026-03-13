@@ -644,12 +644,48 @@ function renderUploadPage(title: string): string {
     .drop {
       border: 2px dashed var(--line);
       border-radius: 12px;
-      padding: 24px;
+      padding: 28px 20px;
       text-align: center;
       margin-bottom: 12px;
-      transition: .2s border-color;
+      transition: .2s border-color, .2s transform, .2s background-color;
+      cursor: pointer;
+      display: grid;
+      gap: 8px;
+      justify-items: center;
+      background:
+        linear-gradient(180deg, rgba(255, 248, 238, 0.9), rgba(255, 252, 246, 0.98));
+      min-height: 148px;
     }
-    .drop.drag { border-color: var(--primary); }
+    .drop:hover {
+      border-color: var(--primary);
+      background: linear-gradient(180deg, rgba(255, 242, 226, 0.95), rgba(255, 250, 243, 1));
+      transform: translateY(-1px);
+    }
+    .drop.drag { border-color: var(--primary); background: linear-gradient(180deg, rgba(255, 238, 218, 1), rgba(255, 248, 238, 1)); }
+    .drop-title {
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.4;
+      color: var(--text);
+    }
+    .drop-sub {
+      max-width: 460px;
+      color: #735d50;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .drop-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid var(--line);
+      color: var(--primary);
+      font-size: 13px;
+      line-height: 1;
+    }
     input, button {
       width: 100%;
       padding: 10px 12px;
@@ -670,6 +706,17 @@ function renderUploadPage(title: string): string {
       color: #6a5548;
       font-size: 13px;
       line-height: 1.5;
+    }
+    .file-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
     .queue {
       display: grid;
@@ -782,9 +829,13 @@ function renderUploadPage(title: string): string {
       <a class="manage-link" href="/manage">进入管理页</a>
     </div>
     <form id="uploadForm">
-      <div class="drop" id="dropZone">拖拽多张图片到这里，或点击下方选择文件</div>
+      <label class="drop" id="dropZone" for="image">
+        <span class="drop-chip">选择文件 / 拖拽上传</span>
+        <span class="drop-title">把图片拖到这里，或点击这里选择</span>
+        <span class="drop-sub">支持单图和多图。选中后会在下方生成预览列表，你可以逐张修改标题再上传。</span>
+      </label>
       <p class="hint">JPEG/PNG/静态图会自动转为 WebP；GIF 会自动转为动态 WebP；SVG 原样上传但会做安全检查。默认大小限制：静态图源文件 10MB，GIF 源文件 20MB，最终 WebP 20MB，SVG 1MB。选择后可在下方列表中双击标题修改，回车保存。</p>
-      <input id="image" name="image" type="file" accept="image/*" multiple required />
+      <input class="file-input" id="image" name="image" type="file" accept="image/*" multiple required />
       <button type="submit">上传到 R2</button>
     </form>
     <div id="preview" class="queue-empty">暂未选择图片</div>
