@@ -671,9 +671,104 @@ function renderUploadPage(title: string): string {
       font-size: 13px;
       line-height: 1.5;
     }
-    #preview { text-align: center; }
-    #preview img { max-width: 100%; max-height: 320px; object-fit: contain; border-radius: 10px; margin: 12px auto 0; display: block; }
+    .queue {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .queue-item {
+      display: grid;
+      grid-template-columns: 132px 1fr;
+      gap: 12px;
+      align-items: stretch;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fffaf4;
+      padding: 10px;
+      min-height: 112px;
+    }
+    .queue-thumb {
+      width: 132px;
+      min-height: 90px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fff;
+      border: 1px solid var(--line);
+      display: grid;
+      place-items: center;
+    }
+    .queue-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    .queue-meta {
+      display: grid;
+      align-content: start;
+      gap: 6px;
+      min-width: 0;
+    }
+    .queue-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .queue-name {
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.4;
+      word-break: break-word;
+      padding: 2px 6px;
+      border-radius: 6px;
+      outline: none;
+      cursor: text;
+    }
+    .queue-name.editing {
+      background: #fff;
+      box-shadow: inset 0 0 0 1px #d7b79f;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      white-space: nowrap;
+      background: #efe3d5;
+      color: #7a4b32;
+    }
+    .badge.success { background: #dff3e4; color: #1b6b3a; }
+    .badge.error { background: #f8d8d3; color: #912018; }
+    .badge.pending { background: #efe3d5; color: #7a4b32; }
+    .queue-line {
+      color: #6a5548;
+      font-size: 13px;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+    .queue-empty {
+      margin-top: 14px;
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      padding: 18px;
+      text-align: center;
+      color: #7c6658;
+      background: #fffaf4;
+    }
     #result { margin-top: 8px; font-size: 13px; word-break: break-all; color: #5a4a42; text-align: center; }
+    @media (max-width: 640px) {
+      .queue-item {
+        grid-template-columns: 1fr;
+      }
+      .queue-thumb {
+        width: 100%;
+        min-height: 180px;
+      }
+    }
     @keyframes rise {
       from { opacity: 0; transform: translateY(12px); }
       to { opacity: 1; transform: translateY(0); }
@@ -687,13 +782,12 @@ function renderUploadPage(title: string): string {
       <a class="manage-link" href="/manage">进入管理页</a>
     </div>
     <form id="uploadForm">
-      <div class="drop" id="dropZone">拖拽图片到这里，或点击下方选择文件</div>
-      <p class="hint">JPEG/PNG/静态图会自动转为 WebP；GIF 会自动转为动态 WebP；SVG 原样上传但会做安全检查。默认大小限制：静态图源文件 10MB，GIF 源文件 20MB，最终 WebP 20MB，SVG 1MB。</p>
-      <input id="title" name="title" type="text" maxlength="120" placeholder="图片标题" />
-      <input id="image" name="image" type="file" accept="image/*" required />
+      <div class="drop" id="dropZone">拖拽多张图片到这里，或点击下方选择文件</div>
+      <p class="hint">JPEG/PNG/静态图会自动转为 WebP；GIF 会自动转为动态 WebP；SVG 原样上传但会做安全检查。默认大小限制：静态图源文件 10MB，GIF 源文件 20MB，最终 WebP 20MB，SVG 1MB。选择后可在下方列表中双击标题修改，回车保存。</p>
+      <input id="image" name="image" type="file" accept="image/*" multiple required />
       <button type="submit">上传到 R2</button>
     </form>
-    <div id="preview"></div>
+    <div id="preview" class="queue-empty">暂未选择图片</div>
     <div id="result"></div>
   </main>
   <script type="module">
@@ -705,17 +799,17 @@ function renderUploadPage(title: string): string {
 
     const form = document.getElementById('uploadForm');
     const fileInput = document.getElementById('image');
-    const titleInput = document.getElementById('title');
     const drop = document.getElementById('dropZone');
     const preview = document.getElementById('preview');
     const result = document.getElementById('result');
     let pendingNormalize = Promise.resolve();
     let gif2webpToolsPromise;
+    let uploadQueue = [];
 
     fileInput.addEventListener('change', () => {
-      const f = fileInput.files && fileInput.files[0];
-      if (!f) return;
-      pendingNormalize = normalizeAndAssign(f);
+      const files = Array.from(fileInput.files || []);
+      if (!files.length) return;
+      pendingNormalize = normalizeAndAssignMany(files);
     });
 
     drop.addEventListener('dragover', (e) => {
@@ -728,91 +822,295 @@ function renderUploadPage(title: string): string {
       drop.classList.remove('drag');
       const files = e.dataTransfer && e.dataTransfer.files;
       if (!files || !files.length) return;
-      const f = files[0];
-      pendingNormalize = normalizeAndAssign(f);
+      pendingNormalize = normalizeAndAssignMany(Array.from(files));
+    });
+
+    preview.addEventListener('dblclick', (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLElement)) return;
+      const titleNode = target.closest('.queue-name');
+      if (!(titleNode instanceof HTMLElement)) return;
+      titleNode.contentEditable = 'true';
+      titleNode.classList.add('editing');
+      placeCaretAtEnd(titleNode);
+    });
+
+    preview.addEventListener('keydown', (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLElement) || !target.classList.contains('queue-name')) return;
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        saveQueueTitle(target);
+        target.blur();
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelQueueTitle(target);
+        target.blur();
+      }
+    });
+
+    preview.addEventListener('focusout', (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLElement) || !target.classList.contains('queue-name')) return;
+      saveQueueTitle(target);
     });
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       await pendingNormalize;
-      const normalized = fileInput.files && fileInput.files[0];
-      if (!normalized) {
+      if (!uploadQueue.length) {
         result.textContent = '请先选择图片';
         return;
       }
-      if (normalized.type !== 'image/webp' && normalized.type !== 'image/svg+xml') {
-        result.textContent = '上传失败: 仅支持 WebP 或 SVG';
+      const readyItems = uploadQueue.filter((item) => item.normalizedFile && !item.error);
+      if (!readyItems.length) {
+        result.textContent = '没有可上传的图片，请检查失败项后重试';
         return;
       }
+
+      let uploaded = 0;
+      let duplicated = 0;
+      let restored = 0;
+      let failed = 0;
       result.textContent = '上传中...';
-      const data = new FormData(form);
-      const res = await fetch('/api/upload', { method: 'POST', body: data });
-      const body = await res.json();
-      if (!res.ok) {
-        result.textContent = '上传失败: ' + (body.error || 'unknown');
-        return;
+
+      for (const item of readyItems) {
+        item.status = 'uploading';
+        item.message = '正在上传...';
+        renderQueue();
+
+        const data = new FormData();
+        data.set('image', item.normalizedFile);
+        data.set('title', item.title);
+        const res = await fetch('/api/upload', { method: 'POST', body: data });
+        const body = await res.json();
+
+        if (!res.ok) {
+          item.status = 'error';
+          item.message = '上传失败: ' + (body.error || 'unknown');
+          failed += 1;
+          renderQueue();
+          continue;
+        }
+
+        item.id = body.id || '';
+        item.url = body.url || '';
+        if (body.duplicate) {
+          item.status = 'duplicate';
+          item.message = '重复图片，已存在记录';
+          duplicated += 1;
+        } else if (body.restored) {
+          item.status = 'restored';
+          item.message = '曾删除，已恢复并覆盖';
+          restored += 1;
+        } else {
+          item.status = 'success';
+          item.message = '上传成功';
+          uploaded += 1;
+        }
+        renderQueue();
       }
-      if (body.duplicate) {
-        result.innerHTML = '重复图片：已存在记录 <a href="' + body.url + '" target="_blank" rel="noreferrer">' + body.url + '</a><br/>查看页: <a href="/i/' + body.id + '" target="_blank" rel="noreferrer">/i/' + body.id + '</a>';
-        return;
-      }
-      if (body.restored) {
-        result.innerHTML = '图片曾被删除，已恢复并覆盖: <a href="' + body.url + '" target="_blank" rel="noreferrer">' + body.url + '</a><br/>查看页: <a href="/i/' + body.id + '" target="_blank" rel="noreferrer">/i/' + body.id + '</a>';
-        return;
-      }
-      result.innerHTML = '上传成功: <a href="' + body.url + '" target="_blank" rel="noreferrer">' + body.url + '</a><br/>查看页: <a href="/i/' + body.id + '" target="_blank" rel="noreferrer">/i/' + body.id + '</a>';
+
+      result.textContent = '完成：新增 ' + uploaded + '，重复 ' + duplicated + '，恢复 ' + restored + '，失败 ' + failed;
     });
 
-    function showPreview(file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        preview.innerHTML = '<img alt="preview" src="' + reader.result + '" />';
-      };
-      reader.readAsDataURL(file);
+    async function normalizeAndAssignMany(files) {
+      revokeQueueUrls();
+      uploadQueue = [];
+      renderQueue();
+
+      result.textContent = files.length > 1 ? '正在处理 ' + files.length + ' 张图片...' : '正在处理图片...';
+
+      for (let index = 0; index < files.length; index += 1) {
+        const file = files[index];
+        const queueItem = {
+          originalName: file.name,
+          title: buildTitle(file),
+          originalTitle: buildTitle(file),
+          sourceSize: file.size,
+          normalizedSize: file.size,
+          sourceType: file.type,
+          normalizedType: file.type,
+          normalizedFile: null,
+          previewUrl: '',
+          status: 'pending',
+          message: '',
+          id: '',
+          url: '',
+          error: false,
+        };
+        uploadQueue.push(queueItem);
+        renderQueue();
+
+        const policy = getUploadPolicy(file);
+        if (file.size > policy.maxSourceBytes) {
+          queueItem.status = 'error';
+          queueItem.error = true;
+          queueItem.message = policy.label + ' 超过 ' + Math.floor(policy.maxSourceBytes / 1024 / 1024) + 'MB 限制';
+          continue;
+        }
+
+        try {
+          const normalized = await normalizeUploadFile(file, policy);
+          if (normalized.size > policy.maxUploadBytes) {
+            queueItem.status = 'error';
+            queueItem.error = true;
+            queueItem.message = '最终上传文件超过 ' + Math.floor(policy.maxUploadBytes / 1024 / 1024) + 'MB';
+            continue;
+          }
+          queueItem.normalizedFile = normalized;
+          queueItem.normalizedSize = normalized.size;
+          queueItem.normalizedType = normalized.type;
+          queueItem.previewUrl = URL.createObjectURL(normalized);
+          queueItem.message = buildNormalizeMessage(file, normalized);
+        } catch (err) {
+          const msg = (err && err.message) ? err.message : '转码失败';
+          queueItem.status = 'error';
+          queueItem.error = true;
+          queueItem.message = '上传前处理失败: ' + msg;
+        }
+        renderQueue();
+      }
+
+      const validCount = uploadQueue.filter((item) => item.normalizedFile && !item.error).length;
+      result.textContent = validCount
+        ? '已准备 ' + validCount + ' 张图片，点击上传开始提交'
+        : '没有可上传的图片，请重新选择';
     }
 
-    async function normalizeAndAssign(file) {
-      titleInput.value = file.name.replace(/\.[^.]+$/, '');
-
-      const policy = getUploadPolicy(file);
-      if (file.size > policy.maxSourceBytes) {
-        result.textContent = '文件过大: ' + policy.label + ' 最大支持 ' + Math.floor(policy.maxSourceBytes / 1024 / 1024) + 'MB';
-        fileInput.value = '';
+    function renderQueue() {
+      if (!uploadQueue.length) {
+        preview.className = 'queue-empty';
+        preview.innerHTML = '暂未选择图片';
         return;
       }
 
-      result.textContent = policy.needsConvert ? '转码中...' : '校验中...';
-      try {
-        const normalized = await normalizeUploadFile(file, policy);
-        if (normalized.size > policy.maxUploadBytes) {
-          result.textContent = '文件过大: 最终上传文件最大支持 ' + Math.floor(policy.maxUploadBytes / 1024 / 1024) + 'MB';
-          fileInput.value = '';
-          return;
-        }
-        const dt = new DataTransfer();
-        dt.items.add(normalized);
-        fileInput.files = dt.files;
-        showPreview(normalized);
-        const saved = file.size - normalized.size;
-        const ratio = file.size > 0 ? Math.round((saved / file.size) * 100) : 0;
-        function fmtSize(bytes) {
-          return bytes >= 1024 * 1024
-            ? (bytes / 1024 / 1024).toFixed(2) + ' MB'
-            : (bytes / 1024).toFixed(1) + ' KB';
-        }
-        if (file.type === 'image/webp') {
-          result.textContent = '已是 WebP，大小 ' + fmtSize(file.size) + '，直接上传';
-        } else if (file.type === 'image/gif') {
-          result.textContent = 'GIF 已转为动态 WebP：' + fmtSize(file.size) + ' → ' + fmtSize(normalized.size) + (saved > 0 ? '（节省 ' + ratio + '%）' : '');
-        } else if (file.type === 'image/svg+xml') {
-          result.textContent = 'SVG 大小 ' + fmtSize(file.size) + '，原样上传并在服务端做安全校验';
-        } else {
-          result.textContent = '已转为 WebP：' + fmtSize(file.size) + ' → ' + fmtSize(normalized.size) + '（节省 ' + ratio + '%）';
-        }
-      } catch (err) {
-        const msg = (err && err.message) ? err.message : '转码失败';
-        result.textContent = '上传前转码失败: ' + msg;
+      preview.className = 'queue';
+      preview.innerHTML = uploadQueue.map((item) => {
+        return '<article class="queue-item">' +
+          '<div class="queue-thumb">' +
+            (item.previewUrl ? '<img alt="preview" src="' + escapeAttr(item.previewUrl) + '" />' : '<span class="queue-line">无预览</span>') +
+          '</div>' +
+          '<div class="queue-meta">' +
+            '<div class="queue-top">' +
+              '<div class="queue-name" data-index="' + String(indexOfItem(item)) + '" tabindex="0">' + escapeHtml(item.title) + '</div>' +
+              '<span class="badge ' + badgeClass(item.status) + '">' + escapeHtml(statusLabel(item.status)) + '</span>' +
+            '</div>' +
+            '<div class="queue-line">原文件：' + escapeHtml(item.originalName) + '</div>' +
+            '<div class="queue-line">类型：' + escapeHtml(item.sourceType || 'unknown') + ' → ' + escapeHtml(item.normalizedType || '-') + '</div>' +
+            '<div class="queue-line">大小：' + fmtSize(item.sourceSize) + ' → ' + fmtSize(item.normalizedSize) + '</div>' +
+            '<div class="queue-line">' + escapeHtml(item.message || '等待处理') + linkHtml(item) + '</div>' +
+          '</div>' +
+        '</article>';
+      }).join('');
+    }
+
+    function indexOfItem(item) {
+      return uploadQueue.indexOf(item);
+    }
+
+    function buildTitle(file) {
+      return file.name.replace(/\.[^.]+$/, '');
+    }
+
+    function saveQueueTitle(node) {
+      const index = Number(node.dataset.index);
+      const item = uploadQueue[index];
+      if (!item) return;
+      const nextTitle = sanitizeQueueTitle(node.textContent, item.originalTitle);
+      item.title = nextTitle;
+      node.textContent = nextTitle;
+      node.contentEditable = 'false';
+      node.classList.remove('editing');
+    }
+
+    function cancelQueueTitle(node) {
+      const index = Number(node.dataset.index);
+      const item = uploadQueue[index];
+      if (!item) return;
+      node.textContent = item.title;
+      node.contentEditable = 'false';
+      node.classList.remove('editing');
+    }
+
+    function sanitizeQueueTitle(value, fallback) {
+      const text = String(value || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+      return text || fallback;
+    }
+
+    function placeCaretAtEnd(node) {
+      const selection = window.getSelection();
+      if (!selection) return;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      range.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+
+    function buildNormalizeMessage(sourceFile, normalizedFile) {
+      const saved = sourceFile.size - normalizedFile.size;
+      const ratio = sourceFile.size > 0 ? Math.round((saved / sourceFile.size) * 100) : 0;
+      if (sourceFile.type === 'image/webp') {
+        return '已是 WebP，直接上传';
       }
+      if (sourceFile.type === 'image/gif') {
+        return 'GIF 已转为动态 WebP' + (saved > 0 ? '，节省 ' + ratio + '%' : '');
+      }
+      if (sourceFile.type === 'image/svg+xml') {
+        return 'SVG 原样上传，并在服务端做安全校验';
+      }
+      return '已转为 WebP' + (saved > 0 ? '，节省 ' + ratio + '%' : '');
+    }
+
+    function badgeClass(status) {
+      if (status === 'success' || status === 'duplicate' || status === 'restored') return 'success';
+      if (status === 'error') return 'error';
+      return 'pending';
+    }
+
+    function statusLabel(status) {
+      if (status === 'success') return '成功';
+      if (status === 'duplicate') return '重复';
+      if (status === 'restored') return '已恢复';
+      if (status === 'uploading') return '上传中';
+      if (status === 'error') return '失败';
+      return '待上传';
+    }
+
+    function linkHtml(item) {
+      if (!item.url || !item.id) {
+        return '';
+      }
+      return ' <a href="' + escapeAttr(item.url) + '" target="_blank" rel="noreferrer">原图</a> · <a href="/i/' + escapeAttr(item.id) + '" target="_blank" rel="noreferrer">查看页</a>';
+    }
+
+    function revokeQueueUrls() {
+      for (const item of uploadQueue) {
+        if (item.previewUrl) {
+          URL.revokeObjectURL(item.previewUrl);
+        }
+      }
+    }
+
+    function fmtSize(bytes) {
+      return bytes >= 1024 * 1024
+        ? (bytes / 1024 / 1024).toFixed(2) + ' MB'
+        : (bytes / 1024).toFixed(1) + ' KB';
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function escapeAttr(str) {
+      return escapeHtml(str);
     }
 
     async function convertToWebp(file) {
