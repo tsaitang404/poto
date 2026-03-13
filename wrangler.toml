@@ -1,0 +1,17 @@
+name = "poto"
+main = "src/index.ts"
+compatibility_date = "2025-12-01"
+workers_dev = true
+
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "poto"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "poto"
+database_id = "6ed106fe-7d51-4803-ba13-3ca6ff07c910"
+[vars]
+PUBLIC_BASE_URL = "https://poto.tsaitang.workers.dev/files"
+WORKER_BASE_URL = "https://poto.tsaitang.workers.dev"
+SITE_TITLE = "Poto"

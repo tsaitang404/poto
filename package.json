@@ -1,0 +1,28 @@
+{
+  "name": "poto-worker",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "node --test test/*.test.mjs",
+    "perm:check": "node scripts/check-permissions.mjs",
+    "d1:ensure": "node scripts/ensure-d1.mjs",
+    "r2:ensure": "node scripts/ensure-r2.mjs",
+    "vars:ensure": "node scripts/ensure-worker-domain.mjs",
+    "d1:migrate": "node scripts/d1-migrate.mjs",
+    "d1:migrate:local": "node scripts/d1-migrate.mjs --local",
+    "purge": "node scripts/purge-data.mjs",
+    "init": "node scripts/init.mjs",
+    "init:local": "node scripts/init.mjs --local",
+    "deploy": "node scripts/deploy.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260303.0",
+    "typescript": "^5.6.3",
+    "wrangler": "^4.73.0"
+  },
+  "dependencies": {
+    "@libwebp-wasm/gif2webp": "^1.0.8"
+  }
+}

@@ -1,0 +1,4 @@
+ACCESS_PASSWORD=replace_with_strong_password
+# Optional:
+# WORKER_BASE_URL=https://poto.<your-subdomain>.workers.dev
+# PUBLIC_BASE_URL=https://pub-xxxx.r2.dev
