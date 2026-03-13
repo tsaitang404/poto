@@ -1,8 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import ts from "typescript";
+import { loadWorker } from "./helpers/load-worker.mjs";
 
 const worker = await loadWorker();
 
@@ -92,22 +90,6 @@ test("POST /api/upload rejects invalid token", async () => {
   assert.equal(response.status, 401);
   assert.equal(body.error, "unauthorized");
 });
-
-async function loadWorker() {
-  const filePath = resolve(process.cwd(), "src/index.ts");
-  const source = readFileSync(filePath, "utf8");
-  const output = ts.transpileModule(source, {
-    compilerOptions: {
-      target: ts.ScriptTarget.ES2022,
-      module: ts.ModuleKind.ES2022,
-    },
-    fileName: "index.ts",
-  }).outputText;
-
-  const dataUrl = `data:text/javascript;base64,${Buffer.from(output).toString("base64")}`;
-  const mod = await import(dataUrl);
-  return mod.default;
-}
 
 function createEnv(seed = {}) {
   const state = {

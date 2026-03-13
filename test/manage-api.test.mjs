@@ -1,8 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import ts from "typescript";
+import { loadWorker } from "./helpers/load-worker.mjs";
 
 const worker = await loadWorker();
 
@@ -204,22 +202,6 @@ test("DELETE /api/images/:id deletes from R2 and marks record deleted", async ()
   assert.equal(env.__state.deletedKeys[0], "images/2026-03-14/img-1.webp");
   assert.match(String(env.__state.images["img-1"].deleted_at), /T/);
 });
-
-async function loadWorker() {
-  const filePath = resolve(process.cwd(), "src/index.ts");
-  const source = readFileSync(filePath, "utf8");
-  const output = ts.transpileModule(source, {
-    compilerOptions: {
-      target: ts.ScriptTarget.ES2022,
-      module: ts.ModuleKind.ES2022,
-    },
-    fileName: "index.ts",
-  }).outputText;
-
-  const dataUrl = `data:text/javascript;base64,${Buffer.from(output).toString("base64")}`;
-  const mod = await import(dataUrl);
-  return mod.default;
-}
 
 function createEnv(seed = { images: {} }) {
   const state = {
