@@ -30,6 +30,20 @@ test("GET /manage returns HTML when authorized", async () => {
   assert.match(html, /下一页/);
 });
 
+test("POST /logout clears auth cookie and redirects to /protected", async () => {
+  const env = createEnv();
+  const request = new Request("https://example.com/logout", {
+    method: "POST",
+    headers: { Cookie: "poto_auth=1" },
+  });
+
+  const response = await worker.fetch(request, env);
+
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get("location"), "https://example.com/protected");
+  assert.match(String(response.headers.get("set-cookie")), /Max-Age=0/);
+});
+
 test("GET /api/images returns pagination metadata and paged items", async () => {
   const env = createEnv({
     images: {

@@ -1,4 +1,4 @@
-import { handleGetApiToken, handleProtectedPost, handleRotateApiToken } from "./handlers/auth";
+import { handleGetApiToken, handleLogout, handleProtectedPost, handleRotateApiToken } from "./handlers/auth";
 import {
   handleDeleteImage,
   handleGetImage,
@@ -47,6 +47,10 @@ export default {
 
     if (url.pathname === "/protected" && request.method === "POST") {
       return handleProtectedPost(request, env, url.origin);
+    }
+
+    if (url.pathname === "/logout" && request.method === "POST") {
+      return handleLogout(url.origin);
     }
 
     if (url.pathname === "/api/upload" && request.method === "POST") {
