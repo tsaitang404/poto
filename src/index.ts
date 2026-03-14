@@ -8,6 +8,7 @@ import {
   handleUpload,
   handleViewPage,
 } from "./handlers/media";
+import { handleGetSettings, handleUpdateSettings } from "./handlers/settings";
 import { isAuthed, isUploadAuthed } from "./lib/auth";
 import { htmlResponse, json } from "./lib/http";
 import { getWorkerBaseUrl } from "./lib/upload";
@@ -64,6 +65,20 @@ export default {
         return json({ error: "unauthorized" }, 401);
       }
       return handleRotateApiToken(env);
+    }
+
+    if (url.pathname === "/api/settings" && request.method === "GET") {
+      if (!authed) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      return handleGetSettings(env);
+    }
+
+    if (url.pathname === "/api/settings" && request.method === "PUT") {
+      if (!authed) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      return handleUpdateSettings(request, env);
     }
 
     if (url.pathname === "/api/images" && request.method === "GET") {

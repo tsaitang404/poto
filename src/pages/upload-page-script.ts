@@ -4,6 +4,11 @@ const MAX_STATIC_SOURCE_BYTES = 10 * 1024 * 1024;
 const MAX_GIF_SOURCE_BYTES = 20 * 1024 * 1024;
 const MAX_WEBP_UPLOAD_BYTES = 20 * 1024 * 1024;
 const MAX_SVG_UPLOAD_BYTES = 1 * 1024 * 1024;
+const DEFAULT_UPLOAD_SETTINGS = {
+  webp_mode: 'smart',
+  static_webp_quality: 86,
+  gif_webp_quality: 80,
+};
 
 const form = document.getElementById('uploadForm');
 const fileInput = document.getElementById('image');
@@ -13,11 +18,13 @@ const result = document.getElementById('result');
 let pendingNormalize = Promise.resolve();
 let gif2webpToolsPromise;
 let uploadQueue = [];
+let uploadSettings = { ...DEFAULT_UPLOAD_SETTINGS };
+const settingsReady = loadUploadSettings();
 
 fileInput.addEventListener('change', () => {
   const files = Array.from(fileInput.files || []);
   if (!files.length) return;
-  pendingNormalize = normalizeAndAssignMany(files);
+  pendingNormalize = settingsReady.then(() => normalizeAndAssignMany(files));
 });
 
 drop.addEventListener('dragover', (e) => {
@@ -30,7 +37,7 @@ drop.addEventListener('drop', (e) => {
   drop.classList.remove('drag');
   const files = e.dataTransfer && e.dataTransfer.files;
   if (!files || !files.length) return;
-  pendingNormalize = normalizeAndAssignMany(Array.from(files));
+  pendingNormalize = settingsReady.then(() => normalizeAndAssignMany(Array.from(files)));
 });
 
 preview.addEventListener('dblclick', (e) => {
@@ -66,6 +73,7 @@ preview.addEventListener('focusout', (e) => {
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
+  await settingsReady;
   await pendingNormalize;
   if (!uploadQueue.length) {
     result.textContent = '请先选择图片';
@@ -160,7 +168,8 @@ async function normalizeAndAssignMany(files) {
     }
 
     try {
-      const normalized = await normalizeUploadFile(file, policy);
+      const normalizedResult = await normalizeUploadFile(file, policy);
+      const normalized = normalizedResult.file;
       if (normalized.size > policy.maxUploadBytes) {
         queueItem.status = 'error';
         queueItem.error = true;
@@ -171,7 +180,7 @@ async function normalizeAndAssignMany(files) {
       queueItem.normalizedSize = normalized.size;
       queueItem.normalizedType = normalized.type;
       queueItem.previewUrl = URL.createObjectURL(normalized);
-      queueItem.message = buildNormalizeMessage(file, normalized);
+      queueItem.message = normalizedResult.message;
     } catch (err) {
       const msg = (err && err.message) ? err.message : '转码失败';
       queueItem.status = 'error';
@@ -253,21 +262,6 @@ function placeCaretAtEnd(node) {
   selection.addRange(range);
 }
 
-function buildNormalizeMessage(sourceFile, normalizedFile) {
-  const saved = sourceFile.size - normalizedFile.size;
-  const ratio = sourceFile.size > 0 ? Math.round((saved / sourceFile.size) * 100) : 0;
-  if (sourceFile.type === 'image/webp') {
-    return '已是 WebP，直接上传';
-  }
-  if (sourceFile.type === 'image/gif') {
-    return 'GIF 已转为动态 WebP' + (saved > 0 ? '，节省 ' + ratio + '%' : '');
-  }
-  if (sourceFile.type === 'image/svg+xml') {
-    return 'SVG 原样上传，并在服务端做安全校验';
-  }
-  return '已转为 WebP' + (saved > 0 ? '，节省 ' + ratio + '%' : '');
-}
-
 function badgeClass(status) {
   if (status === 'success' || status === 'duplicate' || status === 'restored') return 'success';
   if (status === 'error') return 'error';
@@ -317,7 +311,7 @@ function escapeAttr(str) {
   return escapeHtml(str);
 }
 
-async function convertToWebp(file) {
+async function convertToWebp(file, quality) {
   if (!file.type.startsWith('image/')) {
     throw new Error('仅支持图片文件');
   }
@@ -346,24 +340,25 @@ async function convertToWebp(file) {
         return;
       }
       resolve(b);
-    }, 'image/webp', 0.86);
+    }, 'image/webp', quality);
   });
 
   const name = file.name.replace(/\.[^.]+$/, '') + '.webp';
   return new File([blob], name, { type: 'image/webp', lastModified: Date.now() });
 }
 
-async function convertGifToAnimatedWebp(file) {
+async function convertGifToAnimatedWebp(file, quality) {
   const tools = await loadGif2WebpTools();
   const module = await tools.Gif2Webp(tools.initLocateFile(new URL('gif2webp.wasm', GIF2WEBP_MODULE_URL).href));
   const cwd = '/workspace';
   const inputPath = cwd + '/input.gif';
   const outputPath = cwd + '/output.webp';
   const bytes = new Uint8Array(await file.arrayBuffer());
+  const gifQuality = String(Math.max(1, Math.min(100, Math.round(quality * 100))));
 
   tools.initFS(module, cwd);
   tools.writeFileWithUint8ArrayData(module, inputPath, bytes);
-  tools.runGif2Webp(module, undefined, inputPath, '-q', '80', '-mixed', '-mt', '-o', outputPath);
+  tools.runGif2Webp(module, undefined, inputPath, '-q', gifQuality, '-mixed', '-mt', '-o', outputPath);
 
   const blob = tools.getFileWithBlobData(module, outputPath, 'image/webp');
   return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.webp', {
@@ -379,28 +374,56 @@ async function loadGif2WebpTools() {
   return gif2webpToolsPromise;
 }
 
+async function loadUploadSettings() {
+  try {
+    const res = await fetch('/api/settings');
+    const body = await res.json();
+    if (!res.ok) {
+      return;
+    }
+    uploadSettings = {
+      webp_mode: normalizeMode(body.webp_mode),
+      static_webp_quality: clampQuality(body.static_webp_quality, DEFAULT_UPLOAD_SETTINGS.static_webp_quality),
+      gif_webp_quality: clampQuality(body.gif_webp_quality, DEFAULT_UPLOAD_SETTINGS.gif_webp_quality),
+    };
+  } catch {
+  }
+}
+
 async function normalizeUploadFile(file, policy) {
   if (!policy.needsConvert) {
-    return file;
+    return { file, message: buildOriginalMessage(file, policy) };
   }
+  const quality = policy.kind === 'gif' ? policy.webpQuality : policy.webpQuality / 100;
   if (policy.kind === 'gif') {
     try {
-      return await convertGifToAnimatedWebp(file);
+      const convertedGif = await convertGifToAnimatedWebp(file, quality);
+      if (policy.mode === 'smart' && convertedGif.size >= file.size) {
+        return { file, message: '智能模式保留原始 GIF，转 WebP 后未更小' };
+      }
+      return { file: convertedGif, message: buildConvertedMessage(file, convertedGif, policy.mode, true) };
     } catch (err) {
       const msg = (err && err.message) ? err.message : 'GIF 转动态 WebP 失败';
       throw new Error(msg + '，请稍后重试或先手动转为动态 WebP');
     }
   }
-  return convertToWebp(file);
+  const converted = await convertToWebp(file, quality);
+  if (policy.mode === 'smart' && converted.size >= file.size) {
+    return { file, message: '智能模式保留原图，转 WebP 后未更小' };
+  }
+  return { file: converted, message: buildConvertedMessage(file, converted, policy.mode, false) };
 }
 
 function getUploadPolicy(file) {
+  const mode = uploadSettings.webp_mode;
   if (file.type === 'image/gif') {
     return {
       kind: 'gif',
-      needsConvert: true,
+      mode,
+      needsConvert: mode !== 'original' && file.type !== 'image/webp',
       maxSourceBytes: MAX_GIF_SOURCE_BYTES,
       maxUploadBytes: MAX_WEBP_UPLOAD_BYTES,
+      webpQuality: uploadSettings.gif_webp_quality,
       label: 'GIF',
     };
   }
@@ -415,10 +438,44 @@ function getUploadPolicy(file) {
   }
   return {
     kind: 'static',
-    needsConvert: file.type !== 'image/webp',
+    mode,
+    needsConvert: mode !== 'original' && file.type !== 'image/webp',
     maxSourceBytes: file.type === 'image/webp' ? MAX_WEBP_UPLOAD_BYTES : MAX_STATIC_SOURCE_BYTES,
-    maxUploadBytes: MAX_WEBP_UPLOAD_BYTES,
+    maxUploadBytes: mode === 'original' ? (file.type === 'image/webp' ? MAX_WEBP_UPLOAD_BYTES : MAX_STATIC_SOURCE_BYTES) : MAX_WEBP_UPLOAD_BYTES,
+    webpQuality: uploadSettings.static_webp_quality,
     label: file.type === 'image/webp' ? 'WebP' : '静态图',
   };
+}
+
+function buildOriginalMessage(file, policy) {
+  if (file.type === 'image/svg+xml') {
+    return 'SVG 原样上传，并在服务端做安全校验';
+  }
+  if (file.type === 'image/webp') {
+    return '已是 WebP，直接上传';
+  }
+  if (policy.mode === 'original') {
+    return '按设置保留原始格式上传';
+  }
+  return '原图直传';
+}
+
+function buildConvertedMessage(sourceFile, normalizedFile, mode, isGif) {
+  const saved = sourceFile.size - normalizedFile.size;
+  const ratio = sourceFile.size > 0 ? Math.round((saved / sourceFile.size) * 100) : 0;
+  const prefix = isGif ? 'GIF 已转为动态 WebP' : (mode === 'smart' ? '智能模式选择 WebP' : '已按设置转为 WebP');
+  return prefix + (saved > 0 ? '，节省 ' + ratio + '%' : '');
+}
+
+function normalizeMode(value) {
+  return value === 'force' || value === 'smart' || value === 'original' ? value : DEFAULT_UPLOAD_SETTINGS.webp_mode;
+}
+
+function clampQuality(value, fallback) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    return fallback;
+  }
+  return Math.max(1, Math.min(100, Math.round(num)));
 }
 `;

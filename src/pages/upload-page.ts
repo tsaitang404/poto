@@ -256,7 +256,7 @@ export function renderUploadPage(title: string): string {
         <span class="drop-title">把图片拖到这里，或点击这里选择</span>
         <span class="drop-sub">支持单图和多图。选中后会在下方生成预览列表，你可以逐张修改标题再上传。</span>
       </label>
-      <p class="hint">JPEG/PNG/静态图会自动转为 WebP；GIF 会自动转为动态 WebP；SVG 原样上传但会做安全检查。默认大小限制：静态图源文件 10MB，GIF 源文件 20MB，最终 WebP 20MB，SVG 1MB。选择后可在下方列表中双击标题修改，回车保存。</p>
+      <p class="hint">上传策略由管理页设置决定：可强制转为 WebP、智能选择更小文件，或保留原始格式。SVG 始终原样上传并做安全检查。默认大小限制：静态图源文件 10MB，GIF 源文件 20MB，最终 WebP 20MB，SVG 1MB。选择后可在下方列表中双击标题修改，回车保存。</p>
       <input class="file-input" id="image" name="image" type="file" accept="image/*" multiple required />
       <button type="submit">上传到 R2</button>
     </form>

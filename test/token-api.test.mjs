@@ -42,6 +42,46 @@ test("POST /api/token/rotate issues token and GET /api/token shows configured", 
   assert.equal(env.__state.tokenRow !== null, true);
 });
 
+test("GET /api/settings returns default upload settings", async () => {
+  const env = createEnv();
+
+  const response = await worker.fetch(new Request("https://example.com/api/settings", {
+    method: "GET",
+    headers: { Cookie: "poto_auth=1" },
+  }), env);
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.webp_mode, "smart");
+  assert.equal(body.static_webp_quality, 86);
+  assert.equal(body.gif_webp_quality, 80);
+});
+
+test("PUT /api/settings saves upload settings", async () => {
+  const env = createEnv();
+
+  const response = await worker.fetch(new Request("https://example.com/api/settings", {
+    method: "PUT",
+    headers: {
+      Cookie: "poto_auth=1",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      webp_mode: "force",
+      static_webp_quality: 72,
+      gif_webp_quality: 64,
+    }),
+  }), env);
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.webp_mode, "force");
+  assert.equal(body.static_webp_quality, 72);
+  assert.equal(body.gif_webp_quality, 64);
+  assert.equal(env.__state.configurationRow.webp_mode, "force");
+});
+
 test("POST /api/upload accepts Bearer token auth", async () => {
   const env = createEnv();
 
@@ -94,6 +134,7 @@ test("POST /api/upload rejects invalid token", async () => {
 function createEnv(seed = {}) {
   const state = {
     tokenRow: seed.tokenRow ?? null,
+    configurationRow: seed.configurationRow ?? null,
     bySha: seed.bySha ?? {},
     r2PutCalls: [],
   };
@@ -132,6 +173,9 @@ function createStatement(query, state) {
       if (query.includes("SELECT token_hash, created_at, rotated_at FROM api_tokens WHERE id = 1")) {
         return state.tokenRow;
       }
+      if (query.includes("SELECT webp_mode, static_webp_quality, gif_webp_quality, updated_at FROM configuration WHERE id = 1")) {
+        return state.configurationRow;
+      }
       if (query.includes("SELECT id, title, public_url, mime_type, size_bytes, created_at, deleted_at FROM images WHERE sha256 = ?")) {
         const [sha] = values;
         return state.bySha[sha] ?? null;
@@ -160,6 +204,16 @@ function createStatement(query, state) {
           state.tokenRow.token_hash = tokenHash;
           state.tokenRow.rotated_at = rotatedAt;
         }
+        return {};
+      }
+      if (query.includes("INSERT INTO configuration (id, webp_mode, static_webp_quality, gif_webp_quality, updated_at)")) {
+        const [webpMode, staticWebpQuality, gifWebpQuality, updatedAt] = values;
+        state.configurationRow = {
+          webp_mode: webpMode,
+          static_webp_quality: staticWebpQuality,
+          gif_webp_quality: gifWebpQuality,
+          updated_at: updatedAt,
+        };
         return {};
       }
       if (query.includes("INSERT INTO images")) {

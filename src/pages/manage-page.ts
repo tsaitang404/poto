@@ -149,6 +149,36 @@ export function renderManagePage(title: string): string {
       letter-spacing: 0.04em;
       margin: 0 0 12px;
     }
+    .settings-grid {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .settings-field {
+      display: grid;
+      gap: 6px;
+    }
+    .settings-field label {
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 600;
+    }
+    .settings-help {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin: 0;
+    }
+    .settings-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .settings-save-status {
+      font-size: 12px;
+      color: var(--muted);
+    }
     .token-panel {
       border: 1px solid #e7d8c8;
       border-radius: 12px;
@@ -323,6 +353,33 @@ export function renderManagePage(title: string): string {
         <button id="settingsClose" class="settings-close" type="button" aria-label="关闭">✕</button>
       </div>
       <div class="settings-body">
+        <p class="settings-section-title">上传策略</p>
+        <div class="settings-grid">
+          <div class="settings-field">
+            <label for="webpMode">图片转 WebP</label>
+            <select id="webpMode" class="control">
+              <option value="force">强制</option>
+              <option value="smart">智能</option>
+              <option value="original">原始</option>
+            </select>
+            <p class="settings-help">强制：除 SVG 外全部转为 WebP。智能：转成 WebP 后仅在更小时使用。原始：保留原格式。</p>
+          </div>
+          <div id="webpParams" class="settings-grid">
+            <div class="settings-field">
+              <label for="staticWebpQuality">静态图 WebP 质量</label>
+              <input id="staticWebpQuality" class="control" type="number" min="1" max="100" value="86" />
+            </div>
+            <div class="settings-field">
+              <label for="gifWebpQuality">GIF 转 WebP 质量</label>
+              <input id="gifWebpQuality" class="control" type="number" min="1" max="100" value="80" />
+            </div>
+          </div>
+          <div class="settings-actions">
+            <button id="saveSettings" class="tool-btn" type="button">保存设置</button>
+            <span id="settingsSaveStatus" class="settings-save-status">正在读取设置...</span>
+          </div>
+        </div>
+
         <p class="settings-section-title">上传 API Token</p>
         <div class="token-panel">
           <div class="token-head">

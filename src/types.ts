@@ -25,3 +25,12 @@ export type ApiTokenRow = {
   created_at: string;
   rotated_at: string;
 };
+
+export type WebpMode = "force" | "smart" | "original";
+
+export type ConfigurationRow = {
+  webp_mode: WebpMode;
+  static_webp_quality: number;
+  gif_webp_quality: number;
+  updated_at: string;
+};

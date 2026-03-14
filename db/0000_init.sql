@@ -20,3 +20,15 @@ CREATE TABLE IF NOT EXISTS api_tokens (
   created_at TEXT NOT NULL,
   rotated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS configuration (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  webp_mode TEXT NOT NULL DEFAULT 'smart' CHECK (webp_mode IN ('force', 'smart', 'original')),
+  static_webp_quality INTEGER NOT NULL DEFAULT 86,
+  gif_webp_quality INTEGER NOT NULL DEFAULT 80,
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+INSERT INTO configuration (id, webp_mode, static_webp_quality, gif_webp_quality)
+VALUES (1, 'smart', 86, 80)
+ON CONFLICT(id) DO NOTHING;

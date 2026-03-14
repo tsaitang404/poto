@@ -11,6 +11,12 @@ const pageInfo = document.getElementById('pageInfo');
 const prevPage = document.getElementById('prevPage');
 const nextPage = document.getElementById('nextPage');
 const pageSizeSelect = document.getElementById('pageSizeSelect');
+const webpMode = document.getElementById('webpMode');
+const webpParams = document.getElementById('webpParams');
+const staticWebpQuality = document.getElementById('staticWebpQuality');
+const gifWebpQuality = document.getElementById('gifWebpQuality');
+const saveSettings = document.getElementById('saveSettings');
+const settingsSaveStatus = document.getElementById('settingsSaveStatus');
 const settingsBtn = document.getElementById('settingsBtn');
 const settingsOverlay = document.getElementById('settingsOverlay');
 const settingsClose = document.getElementById('settingsClose');
@@ -24,6 +30,7 @@ let hasNextPage = false;
 
 loadImages();
 loadTokenInfo();
+loadSettings();
 filter.addEventListener('input', renderCurrent);
 reload.addEventListener('click', () => loadImages(currentPage));
 pageSizeSelect.addEventListener('change', () => loadImages(1));
@@ -31,6 +38,8 @@ settingsBtn.addEventListener('click', openSettings);
 settingsClose.addEventListener('click', closeSettings);
 settingsOverlay.addEventListener('click', (e) => { if (e.target === settingsOverlay) closeSettings(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSettings(); });
+webpMode.addEventListener('change', syncWebpParamVisibility);
+saveSettings.addEventListener('click', saveUploadSettings);
 rotateToken.addEventListener('click', rotateUploadToken);
 copyToken.addEventListener('click', copyUploadToken);
 prevPage.addEventListener('click', () => {
@@ -53,6 +62,48 @@ function openSettings() {
 function closeSettings() {
   settingsOverlay.hidden = true;
   settingsBtn.focus();
+}
+
+async function loadSettings() {
+  settingsSaveStatus.textContent = '正在读取设置...';
+  const res = await fetch('/api/settings');
+  const body = await res.json();
+  if (!res.ok) {
+    settingsSaveStatus.textContent = '读取设置失败: ' + (body.error || 'unknown');
+    return;
+  }
+  webpMode.value = body.webp_mode || 'smart';
+  staticWebpQuality.value = String(body.static_webp_quality || 86);
+  gifWebpQuality.value = String(body.gif_webp_quality || 80);
+  syncWebpParamVisibility();
+  settingsSaveStatus.textContent = '设置已加载';
+}
+
+function syncWebpParamVisibility() {
+  webpParams.hidden = webpMode.value === 'original';
+}
+
+async function saveUploadSettings() {
+  settingsSaveStatus.textContent = '正在保存设置...';
+  const res = await fetch('/api/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      webp_mode: webpMode.value,
+      static_webp_quality: Number(staticWebpQuality.value) || 86,
+      gif_webp_quality: Number(gifWebpQuality.value) || 80,
+    }),
+  });
+  const body = await res.json();
+  if (!res.ok) {
+    settingsSaveStatus.textContent = '保存失败: ' + (body.error || 'unknown');
+    return;
+  }
+  webpMode.value = body.webp_mode || 'smart';
+  staticWebpQuality.value = String(body.static_webp_quality || 86);
+  gifWebpQuality.value = String(body.gif_webp_quality || 80);
+  syncWebpParamVisibility();
+  settingsSaveStatus.textContent = '设置已保存';
 }
 
 async function loadImages(page = 1) {
