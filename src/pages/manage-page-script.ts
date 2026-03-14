@@ -11,6 +11,10 @@ const pageInfo = document.getElementById('pageInfo');
 const prevPage = document.getElementById('prevPage');
 const nextPage = document.getElementById('nextPage');
 const pageSizeSelect = document.getElementById('pageSizeSelect');
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsOverlay = document.getElementById('settingsOverlay');
+const settingsClose = document.getElementById('settingsClose');
+const settingsDrawer = document.getElementById('settingsDrawer');
 let allItems = [];
 let latestToken = '';
 let currentPage = 1;
@@ -23,6 +27,10 @@ loadTokenInfo();
 filter.addEventListener('input', renderCurrent);
 reload.addEventListener('click', () => loadImages(currentPage));
 pageSizeSelect.addEventListener('change', () => loadImages(1));
+settingsBtn.addEventListener('click', openSettings);
+settingsClose.addEventListener('click', closeSettings);
+settingsOverlay.addEventListener('click', (e) => { if (e.target === settingsOverlay) closeSettings(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSettings(); });
 rotateToken.addEventListener('click', rotateUploadToken);
 copyToken.addEventListener('click', copyUploadToken);
 prevPage.addEventListener('click', () => {
@@ -35,6 +43,17 @@ nextPage.addEventListener('click', () => {
     loadImages(currentPage + 1);
   }
 });
+
+function openSettings() {
+  settingsOverlay.hidden = false;
+  settingsDrawer.scrollTop = 0;
+  settingsClose.focus();
+}
+
+function closeSettings() {
+  settingsOverlay.hidden = true;
+  settingsBtn.focus();
+}
 
 async function loadImages(page = 1) {
   status.textContent = '正在获取数据...';

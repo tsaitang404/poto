@@ -102,6 +102,53 @@ export function renderManagePage(title: string): string {
       min-width: 96px;
       text-align: center;
     }
+    .settings-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(42, 31, 26, 0.4);
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-end;
+      z-index: 100;
+    }
+    .settings-overlay[hidden] { display: none; }
+    .settings-drawer {
+      background: var(--card);
+      width: min(420px, 100vw);
+      height: 100%;
+      overflow-y: auto;
+      box-shadow: -4px 0 28px rgba(70, 44, 28, 0.18);
+      display: flex;
+      flex-direction: column;
+    }
+    .settings-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    .settings-header strong { font-size: 16px; }
+    .settings-close {
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 20px;
+      color: var(--muted);
+      padding: 4px 8px;
+      border-radius: 8px;
+      line-height: 1;
+    }
+    .settings-close:hover { background: var(--primary-soft); }
+    .settings-body { padding: 18px; flex: 1; }
+    .settings-section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin: 0 0 12px;
+    }
     .token-panel {
       border: 1px solid #e7d8c8;
       border-radius: 12px;
@@ -250,21 +297,10 @@ export function renderManagePage(title: string): string {
         <span id="status" class="status-pill">加载中...</span>
         <input id="filter" class="control" type="search" placeholder="搜索标题或 ID" />
         <button id="reload" class="tool-btn" type="button">刷新</button>
+        <button id="settingsBtn" class="tool-btn" type="button">设置</button>
         <a href="/">返回上传页</a>
       </div>
     </div>
-    <section class="token-panel">
-      <div class="token-head">
-        <strong class="token-title">上传 API Token</strong>
-        <div class="token-actions">
-          <button id="rotateToken" class="tool-btn" type="button">生成 Token</button>
-          <button id="copyToken" class="tool-btn" type="button" disabled>复制 Token</button>
-        </div>
-      </div>
-      <p class="token-hint">用于无 Cookie 场景调用上传接口。请求头可用 <code>Authorization: Bearer &lt;token&gt;</code> 或 <code>X-API-Token: &lt;token&gt;</code>。</p>
-      <div id="tokenMeta" class="token-meta">正在读取 Token 状态...</div>
-      <div id="tokenValue" class="token-value"></div>
-    </section>
     <section id="list" class="list"></section>
     <div class="pager">
       <button id="prevPage" class="tool-btn" type="button">上一页</button>
@@ -279,6 +315,31 @@ export function renderManagePage(title: string): string {
       </select>
     </div>
   </main>
+
+  <div id="settingsOverlay" class="settings-overlay" hidden>
+    <div class="settings-drawer" id="settingsDrawer">
+      <div class="settings-header">
+        <strong>设置</strong>
+        <button id="settingsClose" class="settings-close" type="button" aria-label="关闭">✕</button>
+      </div>
+      <div class="settings-body">
+        <p class="settings-section-title">上传 API Token</p>
+        <div class="token-panel">
+          <div class="token-head">
+            <strong class="token-title">API Token</strong>
+            <div class="token-actions">
+              <button id="rotateToken" class="tool-btn" type="button">生成 Token</button>
+              <button id="copyToken" class="tool-btn" type="button" disabled>复制 Token</button>
+            </div>
+          </div>
+          <p class="token-hint">用于无 Cookie 场景调用上传接口。请求头可用 <code>Authorization: Bearer &lt;token&gt;</code> 或 <code>X-API-Token: &lt;token&gt;</code>。</p>
+          <div id="tokenMeta" class="token-meta">正在读取 Token 状态...</div>
+          <div id="tokenValue" class="token-value"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
 ${managePageScript}
   </script>
