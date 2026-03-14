@@ -89,15 +89,21 @@ CREATE INDEX IF NOT EXISTS idx_images_deleted_at ON images(deleted_at);
 ## 路由
 
 - `GET /` 上传页（需要验证）
+- `GET /manage` 管理页（需要验证）
 - `GET /protected` 密码页
 - `POST /protected` 密码验证
+- `POST /logout` 退出登录
 - `POST /api/upload` 上传图片
 - `GET /api/token` 查看上传 API Token 状态（需管理登录）
 - `POST /api/token/rotate` 生成/轮换上传 API Token（需管理登录）
-- `GET /api/images` 最近 100 条图片记录
+- `GET /api/settings` 读取上传与统计相关设置（需管理登录）
+- `PUT /api/settings` 更新上传与统计相关设置（需管理登录）
+- `GET /api/stats` 管理页统计数据（需管理登录）
+- `GET /api/images` 图片记录列表（支持分页参数 `page` / `page_size`）
 - `GET /api/images/:id` 查询单图元数据
 - `DELETE /api/images/:id` 删除图片（软删除 + R2 删除）
 - `GET /i/:id` 图片查看页
+- `GET /files/:object_key` 文件代理访问（Worker 转发 R2）
 
 上传接口约束：
 
@@ -151,6 +157,13 @@ wrangler secret put CLOUDFLARE_API_TOKEN
 - 文件最大 Top 10、各类型文件数量来自业务表聚合，因为这些属于应用元数据统计。
 - 如果 `CLOUDFLARE_API_TOKEN` 或相关 Cloudflare 绑定缺失，`/api/stats` 会直接报错，不会回退到本地估算。
 - 设置组件中可单独保存 `CLOUDFLARE_API_TOKEN`；当该值非空时，它的优先级高于 Worker 默认环境变量中的 `CLOUDFLARE_API_TOKEN`。
+
+Token 安全建议：
+
+- 不要把 `CLOUDFLARE_API_TOKEN` 写进源码或提交到 Git。
+- `.env` 和 `.dev.vars` 已在 `.gitignore` 中忽略。
+- 线上环境建议使用 `wrangler secret put CLOUDFLARE_API_TOKEN` 注入。
+- 如果在管理页设置里填写了覆盖 Token，会写入 D1 `configuration.cloudflare_api_token`；未填写时回退使用 Worker 环境变量。
 
 本项目提供自动化：
 
