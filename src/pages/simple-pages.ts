@@ -64,8 +64,9 @@ export function renderProtectedPage(error = ""): string {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>访问验证</title>
   <style>
-    body { font-family: sans-serif; display: grid; place-items: center; min-height: 100vh; background: #f4efe6; }
-    form { background: #fff; border-radius: 12px; padding: 20px; width: min(360px, 92%); border: 1px solid #e7dece; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 20px; font-family: sans-serif; display: grid; place-items: center; min-height: 100vh; background: #f4efe6; }
+    form { background: #fff; border-radius: 12px; padding: 20px; width: min(360px, 100%); border: 1px solid #e7dece; }
     input, button { width: 100%; padding: 10px; margin-top: 8px; }
     button { background: #8f3f23; color: #fff; border: none; cursor: pointer; }
   </style>
