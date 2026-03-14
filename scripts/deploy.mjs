@@ -1,5 +1,5 @@
 import "./load-env.mjs";
-import { execSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
 
 const deployCommand = buildDeployCommand(process.env.WORKER_ROUTES);
 
@@ -18,6 +18,21 @@ for (const step of steps) {
     stdio: "inherit",
     env: process.env,
   });
+}
+
+const accessPassword = process.env.ACCESS_PASSWORD;
+if (accessPassword) {
+  console.log("\n[deploy] wrangler secret put ACCESS_PASSWORD");
+  const result = spawnSync("wrangler", ["secret", "put", "ACCESS_PASSWORD"], {
+    input: accessPassword,
+    stdio: ["pipe", "inherit", "inherit"],
+    env: process.env,
+  });
+  if (result.status !== 0) {
+    throw new Error("Failed to set ACCESS_PASSWORD secret");
+  }
+} else {
+  console.log("\n[deploy] ACCESS_PASSWORD not set, skipping secret upload");
 }
 
 function buildDeployCommand(rawRoutes) {
