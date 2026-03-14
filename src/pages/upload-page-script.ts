@@ -1,13 +1,13 @@
 export const uploadPageScript = `
 const GIF2WEBP_MODULE_URL = 'https://cdn.jsdelivr.net/npm/@libwebp-wasm/gif2webp@1.0.8/es/gif2webp.js';
-const MAX_STATIC_SOURCE_BYTES = 10 * 1024 * 1024;
-const MAX_GIF_SOURCE_BYTES = 20 * 1024 * 1024;
-const MAX_WEBP_UPLOAD_BYTES = 20 * 1024 * 1024;
-const MAX_SVG_UPLOAD_BYTES = 1 * 1024 * 1024;
 const DEFAULT_UPLOAD_SETTINGS = {
   webp_mode: 'smart',
   static_webp_quality: 86,
   gif_webp_quality: 80,
+  static_source_max_mb: 10,
+  gif_source_max_mb: 20,
+  webp_upload_max_mb: 20,
+  svg_upload_max_mb: 1,
 };
 
 const form = document.getElementById('uploadForm');
@@ -163,7 +163,7 @@ async function normalizeAndAssignMany(files) {
     if (file.size > policy.maxSourceBytes) {
       queueItem.status = 'error';
       queueItem.error = true;
-      queueItem.message = policy.label + ' 超过 ' + Math.floor(policy.maxSourceBytes / 1024 / 1024) + 'MB 限制';
+      queueItem.message = policy.label + ' 超过 ' + formatMegabytes(policy.maxSourceBytes) + 'MB 限制';
       continue;
     }
 
@@ -173,7 +173,7 @@ async function normalizeAndAssignMany(files) {
       if (normalized.size > policy.maxUploadBytes) {
         queueItem.status = 'error';
         queueItem.error = true;
-        queueItem.message = '最终上传文件超过 ' + Math.floor(policy.maxUploadBytes / 1024 / 1024) + 'MB';
+        queueItem.message = '最终上传文件超过 ' + formatMegabytes(policy.maxUploadBytes) + 'MB';
         continue;
       }
       queueItem.normalizedFile = normalized;
@@ -385,6 +385,10 @@ async function loadUploadSettings() {
       webp_mode: normalizeMode(body.webp_mode),
       static_webp_quality: clampQuality(body.static_webp_quality, DEFAULT_UPLOAD_SETTINGS.static_webp_quality),
       gif_webp_quality: clampQuality(body.gif_webp_quality, DEFAULT_UPLOAD_SETTINGS.gif_webp_quality),
+      static_source_max_mb: clampMegabytes(body.static_source_max_mb, DEFAULT_UPLOAD_SETTINGS.static_source_max_mb),
+      gif_source_max_mb: clampMegabytes(body.gif_source_max_mb, DEFAULT_UPLOAD_SETTINGS.gif_source_max_mb),
+      webp_upload_max_mb: clampMegabytes(body.webp_upload_max_mb, DEFAULT_UPLOAD_SETTINGS.webp_upload_max_mb),
+      svg_upload_max_mb: clampMegabytes(body.svg_upload_max_mb, DEFAULT_UPLOAD_SETTINGS.svg_upload_max_mb),
     };
   } catch {
   }
@@ -421,8 +425,8 @@ function getUploadPolicy(file) {
       kind: 'gif',
       mode,
       needsConvert: mode !== 'original' && file.type !== 'image/webp',
-      maxSourceBytes: MAX_GIF_SOURCE_BYTES,
-      maxUploadBytes: MAX_WEBP_UPLOAD_BYTES,
+      maxSourceBytes: megabytesToBytes(uploadSettings.gif_source_max_mb),
+      maxUploadBytes: megabytesToBytes(uploadSettings.webp_upload_max_mb),
       webpQuality: uploadSettings.gif_webp_quality,
       label: 'GIF',
     };
@@ -431,8 +435,8 @@ function getUploadPolicy(file) {
     return {
       kind: 'svg',
       needsConvert: false,
-      maxSourceBytes: MAX_SVG_UPLOAD_BYTES,
-      maxUploadBytes: MAX_SVG_UPLOAD_BYTES,
+      maxSourceBytes: megabytesToBytes(uploadSettings.svg_upload_max_mb),
+      maxUploadBytes: megabytesToBytes(uploadSettings.svg_upload_max_mb),
       label: 'SVG',
     };
   }
@@ -440,8 +444,10 @@ function getUploadPolicy(file) {
     kind: 'static',
     mode,
     needsConvert: mode !== 'original' && file.type !== 'image/webp',
-    maxSourceBytes: file.type === 'image/webp' ? MAX_WEBP_UPLOAD_BYTES : MAX_STATIC_SOURCE_BYTES,
-    maxUploadBytes: mode === 'original' ? (file.type === 'image/webp' ? MAX_WEBP_UPLOAD_BYTES : MAX_STATIC_SOURCE_BYTES) : MAX_WEBP_UPLOAD_BYTES,
+    maxSourceBytes: file.type === 'image/webp' ? megabytesToBytes(uploadSettings.webp_upload_max_mb) : megabytesToBytes(uploadSettings.static_source_max_mb),
+    maxUploadBytes: mode === 'original'
+      ? (file.type === 'image/webp' ? megabytesToBytes(uploadSettings.webp_upload_max_mb) : megabytesToBytes(uploadSettings.static_source_max_mb))
+      : megabytesToBytes(uploadSettings.webp_upload_max_mb),
     webpQuality: uploadSettings.static_webp_quality,
     label: file.type === 'image/webp' ? 'WebP' : '静态图',
   };
@@ -477,5 +483,22 @@ function clampQuality(value, fallback) {
     return fallback;
   }
   return Math.max(1, Math.min(100, Math.round(num)));
+}
+
+function clampMegabytes(value, fallback) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    return fallback;
+  }
+  return Math.max(0.1, Math.min(500, Math.round(num * 10) / 10));
+}
+
+function megabytesToBytes(megabytes) {
+  return Math.round(megabytes * 1024 * 1024);
+}
+
+function formatMegabytes(bytes) {
+  const megabytes = bytes / 1024 / 1024;
+  return Number.isInteger(megabytes) ? String(megabytes) : String(Number(megabytes.toFixed(1)));
 }
 `;

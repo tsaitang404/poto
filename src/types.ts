@@ -32,5 +32,9 @@ export type ConfigurationRow = {
   webp_mode: WebpMode;
   static_webp_quality: number;
   gif_webp_quality: number;
+  static_source_max_mb: number;
+  gif_source_max_mb: number;
+  webp_upload_max_mb: number;
+  svg_upload_max_mb: number;
   updated_at: string;
 };

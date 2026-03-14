@@ -2,6 +2,8 @@ import type { Env } from "../types";
 
 export const MAX_WEBP_UPLOAD_BYTES = 20 * 1024 * 1024;
 export const MAX_SVG_UPLOAD_BYTES = 1 * 1024 * 1024;
+export const MAX_STATIC_SOURCE_BYTES = 10 * 1024 * 1024;
+export const MAX_GIF_SOURCE_BYTES = 20 * 1024 * 1024;
 
 const ACCEPTED_IMAGE_MIMES: readonly string[] = [
   "image/jpeg",
@@ -37,7 +39,21 @@ export function getMaxUploadBytes(mime: string): number {
   if (mime === "image/svg+xml") {
     return MAX_SVG_UPLOAD_BYTES;
   }
-  return MAX_WEBP_UPLOAD_BYTES;
+  if (mime === "image/gif") {
+    return MAX_GIF_SOURCE_BYTES;
+  }
+  if (mime === "image/webp") {
+    return MAX_WEBP_UPLOAD_BYTES;
+  }
+  return MAX_STATIC_SOURCE_BYTES;
+}
+
+export function megabytesToBytes(megabytes: number): number {
+  return Math.round(megabytes * 1024 * 1024);
+}
+
+export function formatMegabytes(megabytes: number): string {
+  return Number.isInteger(megabytes) ? String(megabytes) : String(Number(megabytes.toFixed(1)));
 }
 
 export function normalizeStoredMime(mime: string): string {

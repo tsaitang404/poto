@@ -1,10 +1,12 @@
 import { json, htmlResponse } from "../lib/http";
+import { getUploadSettings } from "./settings";
 import {
   encodeObjectKeyForUrl,
   extensionByMime,
-  getMaxUploadBytes,
+  formatMegabytes,
   getPublicBaseUrl,
   isAcceptedUploadMime,
+  megabytesToBytes,
   normalizeStoredMime,
   sha256Hex,
   validateSvgContent,
@@ -31,9 +33,10 @@ export async function handleUpload(request: Request, env: Env, workerBaseUrl: st
     return json({ error: "unsupported image format: " + file.type }, 400);
   }
 
-  const maxBytes = getMaxUploadBytes(file.type);
+  const settings = await getUploadSettings(env);
+  const maxBytes = getConfiguredUploadBytes(file.type, settings);
   if (file.size > maxBytes) {
-    return json({ error: `file too large, max ${Math.floor(maxBytes / 1024 / 1024)}MB for ${file.type}` }, 413);
+    return json({ error: `file too large, max ${formatMegabytes(maxBytes / 1024 / 1024)}MB for ${file.type}` }, 413);
   }
 
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -178,6 +181,19 @@ function clampPositiveInt(value: string | null, fallback: number, max = Number.P
     return fallback;
   }
   return Math.min(parsed, max);
+}
+
+function getConfiguredUploadBytes(fileType: string, settings: { static_source_max_mb: number; gif_source_max_mb: number; webp_upload_max_mb: number; svg_upload_max_mb: number }): number {
+  if (fileType === "image/svg+xml") {
+    return megabytesToBytes(settings.svg_upload_max_mb);
+  }
+  if (fileType === "image/gif") {
+    return megabytesToBytes(settings.gif_source_max_mb);
+  }
+  if (fileType === "image/webp") {
+    return megabytesToBytes(settings.webp_upload_max_mb);
+  }
+  return megabytesToBytes(settings.static_source_max_mb);
 }
 
 export async function handleGetImage(env: Env, id: string): Promise<Response> {

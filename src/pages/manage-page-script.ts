@@ -15,6 +15,10 @@ const webpMode = document.getElementById('webpMode');
 const webpParams = document.getElementById('webpParams');
 const staticWebpQuality = document.getElementById('staticWebpQuality');
 const gifWebpQuality = document.getElementById('gifWebpQuality');
+const staticSourceMaxMb = document.getElementById('staticSourceMaxMb');
+const gifSourceMaxMb = document.getElementById('gifSourceMaxMb');
+const webpUploadMaxMb = document.getElementById('webpUploadMaxMb');
+const svgUploadMaxMb = document.getElementById('svgUploadMaxMb');
 const saveSettings = document.getElementById('saveSettings');
 const settingsSaveStatus = document.getElementById('settingsSaveStatus');
 const settingsBtn = document.getElementById('settingsBtn');
@@ -75,6 +79,10 @@ async function loadSettings() {
   webpMode.value = body.webp_mode || 'smart';
   staticWebpQuality.value = String(body.static_webp_quality || 86);
   gifWebpQuality.value = String(body.gif_webp_quality || 80);
+  staticSourceMaxMb.value = String(body.static_source_max_mb || 10);
+  gifSourceMaxMb.value = String(body.gif_source_max_mb || 20);
+  webpUploadMaxMb.value = String(body.webp_upload_max_mb || 20);
+  svgUploadMaxMb.value = String(body.svg_upload_max_mb || 1);
   syncWebpParamVisibility();
   settingsSaveStatus.textContent = '设置已加载';
 }
@@ -92,6 +100,10 @@ async function saveUploadSettings() {
       webp_mode: webpMode.value,
       static_webp_quality: Number(staticWebpQuality.value) || 86,
       gif_webp_quality: Number(gifWebpQuality.value) || 80,
+      static_source_max_mb: Number(staticSourceMaxMb.value) || 10,
+      gif_source_max_mb: Number(gifSourceMaxMb.value) || 20,
+      webp_upload_max_mb: Number(webpUploadMaxMb.value) || 20,
+      svg_upload_max_mb: Number(svgUploadMaxMb.value) || 1,
     }),
   });
   const body = await res.json();
@@ -102,6 +114,10 @@ async function saveUploadSettings() {
   webpMode.value = body.webp_mode || 'smart';
   staticWebpQuality.value = String(body.static_webp_quality || 86);
   gifWebpQuality.value = String(body.gif_webp_quality || 80);
+  staticSourceMaxMb.value = String(body.static_source_max_mb || 10);
+  gifSourceMaxMb.value = String(body.gif_source_max_mb || 20);
+  webpUploadMaxMb.value = String(body.webp_upload_max_mb || 20);
+  svgUploadMaxMb.value = String(body.svg_upload_max_mb || 1);
   syncWebpParamVisibility();
   settingsSaveStatus.textContent = '设置已保存';
 }

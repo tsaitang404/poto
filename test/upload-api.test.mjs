@@ -78,6 +78,7 @@ function makeUploadRequest(bytes, filename, mimeType) {
 
 function createEnv(seed = { bySha: {} }) {
   const state = {
+    configurationRow: seed.configurationRow ?? null,
     bySha: { ...seed.bySha },
     r2PutCalls: [],
     insertCalls: [],
@@ -115,6 +116,9 @@ function createStatement(query, state) {
       return this;
     },
     async first() {
+      if (query.includes("SELECT webp_mode") && query.includes("FROM configuration") && query.includes("WHERE id = 1")) {
+        return state.configurationRow;
+      }
       if (query.includes("SELECT id, title, public_url, mime_type, size_bytes, created_at, deleted_at FROM images WHERE sha256 = ?")) {
         const [sha] = values;
         return state.bySha[sha] ?? null;

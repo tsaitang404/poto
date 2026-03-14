@@ -374,6 +374,24 @@ export function renderManagePage(title: string): string {
               <input id="gifWebpQuality" class="control" type="number" min="1" max="100" value="80" />
             </div>
           </div>
+          <div class="settings-grid">
+            <div class="settings-field">
+              <label for="staticSourceMaxMb">静态图源文件上限（MB）</label>
+              <input id="staticSourceMaxMb" class="control" type="number" min="0.1" max="500" step="0.1" value="10" />
+            </div>
+            <div class="settings-field">
+              <label for="gifSourceMaxMb">GIF 源文件上限（MB）</label>
+              <input id="gifSourceMaxMb" class="control" type="number" min="0.1" max="500" step="0.1" value="20" />
+            </div>
+            <div class="settings-field">
+              <label for="webpUploadMaxMb">最终 WebP 上限（MB）</label>
+              <input id="webpUploadMaxMb" class="control" type="number" min="0.1" max="500" step="0.1" value="20" />
+            </div>
+            <div class="settings-field">
+              <label for="svgUploadMaxMb">SVG 上限（MB）</label>
+              <input id="svgUploadMaxMb" class="control" type="number" min="0.1" max="500" step="0.1" value="1" />
+            </div>
+          </div>
           <div class="settings-actions">
             <button id="saveSettings" class="tool-btn" type="button">保存设置</button>
             <span id="settingsSaveStatus" class="settings-save-status">正在读取设置...</span>
