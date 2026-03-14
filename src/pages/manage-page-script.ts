@@ -34,6 +34,10 @@ const settingsBtn = document.getElementById('settingsBtn');
 const settingsOverlay = document.getElementById('settingsOverlay');
 const settingsClose = document.getElementById('settingsClose');
 const settingsDrawer = document.getElementById('settingsDrawer');
+const accessPassword = document.getElementById('accessPassword');
+const accessPasswordMeta = document.getElementById('accessPasswordMeta');
+const saveAccessPassword = document.getElementById('saveAccessPassword');
+const passwordSaveStatus = document.getElementById('passwordSaveStatus');
 let allItems = [];
 let latestToken = '';
 let currentPage = 1;
@@ -45,6 +49,7 @@ let statsLoaded = false;
 loadImages();
 loadTokenInfo();
 loadSettings();
+loadPasswordInfo();
 filter.addEventListener('input', renderCurrent);
 reload.addEventListener('click', () => {
   loadImages(currentPage);
@@ -60,6 +65,7 @@ settingsOverlay.addEventListener('click', (e) => { if (e.target === settingsOver
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSettings(); });
 webpMode.addEventListener('change', syncWebpParamVisibility);
 saveSettings.addEventListener('click', saveUploadSettings);
+saveAccessPassword.addEventListener('click', updateAccessPassword);
 rotateToken.addEventListener('click', rotateUploadToken);
 copyToken.addEventListener('click', copyUploadToken);
 prevPage.addEventListener('click', () => {
@@ -153,6 +159,49 @@ function syncCloudflareTokenMeta(source) {
     return;
   }
   cloudflareApiTokenMeta.textContent = '当前未配置 Token，统计接口将直接报错。';
+}
+
+async function loadPasswordInfo() {
+  accessPasswordMeta.textContent = '正在读取密码状态...';
+  passwordSaveStatus.textContent = '';
+  const res = await fetch('/api/password');
+  const body = await res.json();
+  if (!res.ok) {
+    accessPasswordMeta.textContent = '读取失败: ' + (body.error || 'unknown');
+    return;
+  }
+  if (!body.configured) {
+    accessPasswordMeta.textContent = '尚未配置密码，首次登录会自动初始化默认密码。';
+    return;
+  }
+  const updated = body.updated_at ? new Date(body.updated_at).toLocaleString() : '-';
+  accessPasswordMeta.textContent = '密码已配置，最后更新: ' + updated;
+}
+
+async function updateAccessPassword() {
+  const nextPassword = String(accessPassword.value || '').trim();
+  if (!nextPassword) {
+    passwordSaveStatus.textContent = '请输入新密码';
+    accessPassword.focus();
+    return;
+  }
+
+  passwordSaveStatus.textContent = '正在更新密码...';
+  const res = await fetch('/api/password', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: nextPassword }),
+  });
+  const body = await res.json();
+
+  if (!res.ok) {
+    passwordSaveStatus.textContent = '更新失败: ' + (body.error || 'unknown');
+    return;
+  }
+
+  accessPassword.value = '';
+  passwordSaveStatus.textContent = '密码已更新';
+  await loadPasswordInfo();
 }
 
 async function loadStats(forceReload) {

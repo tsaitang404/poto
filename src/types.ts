@@ -1,7 +1,7 @@
 export interface Env {
   DB: D1Database;
   R2_BUCKET: R2Bucket;
-  ACCESS_PASSWORD: string;
+  ACCESS_PASSWORD?: string;
   PUBLIC_BASE_URL?: string;
   WORKER_BASE_URL?: string;
   SITE_TITLE?: string;
@@ -28,6 +28,12 @@ export type ApiTokenRow = {
   token_hash: string;
   created_at: string;
   rotated_at: string;
+};
+
+export type AccessPasswordRow = {
+  password_hash: string;
+  created_at: string;
+  updated_at: string;
 };
 
 export type WebpMode = "force" | "smart" | "original";

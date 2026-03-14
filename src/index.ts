@@ -1,4 +1,11 @@
-import { handleGetApiToken, handleLogout, handleProtectedPost, handleRotateApiToken } from "./handlers/auth";
+import {
+  handleGetAccessPassword,
+  handleGetApiToken,
+  handleLogout,
+  handleProtectedPost,
+  handleRotateApiToken,
+  handleUpdateAccessPassword,
+} from "./handlers/auth";
 import {
   handleDeleteImage,
   handleGetImage,
@@ -70,6 +77,20 @@ export default {
         return json({ error: "unauthorized" }, 401);
       }
       return handleRotateApiToken(env);
+    }
+
+    if (url.pathname === "/api/password" && request.method === "GET") {
+      if (!authed) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      return handleGetAccessPassword(env);
+    }
+
+    if (url.pathname === "/api/password" && request.method === "PUT") {
+      if (!authed) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      return handleUpdateAccessPassword(request, env);
     }
 
     if (url.pathname === "/api/settings" && request.method === "GET") {

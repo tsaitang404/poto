@@ -588,6 +588,19 @@ export function renderManagePage(title: string): string {
           </div>
         </div>
 
+        <p class="settings-section-title">访问密码</p>
+        <div class="settings-grid">
+          <div class="settings-field">
+            <label for="accessPassword">新密码</label>
+            <input id="accessPassword" class="control" type="password" spellcheck="false" autocomplete="new-password" placeholder="留空不修改" />
+            <p id="accessPasswordMeta" class="settings-help">正在读取密码状态...</p>
+          </div>
+          <div class="settings-actions">
+            <button id="saveAccessPassword" class="tool-btn" type="button">修改密码</button>
+            <span id="passwordSaveStatus" class="settings-save-status"></span>
+          </div>
+        </div>
+
         <p class="settings-section-title">上传 API Token</p>
         <div class="token-panel">
           <div class="token-head">
