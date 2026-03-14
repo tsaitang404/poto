@@ -11,6 +11,7 @@ bucket_name = "poto"
 binding = "DB"
 database_name = "poto"
 database_id = "6ed106fe-7d51-4803-ba13-3ca6ff07c910"
+
 [vars]
 SITE_TITLE = "Poto"
 CLOUDFLARE_ACCOUNT_ID = "7831d21cea4fc12c509aaa9ca2d050a6"

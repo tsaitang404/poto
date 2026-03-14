@@ -1,10 +1,20 @@
 import "./load-env.mjs";
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { readTomlVar, readTomlValue, upsertTomlVar } from "./lib/toml-vars.mjs";
 
 const configPath = resolve(process.cwd(), "wrangler.toml");
+const templatePath = resolve(process.cwd(), "wrangler.toml.example");
+
+if (!existsSync(configPath)) {
+  if (!existsSync(templatePath)) {
+    throw new Error("wrangler.toml not found and wrangler.toml.example template is missing");
+  }
+  writeFileSync(configPath, readFileSync(templatePath, "utf8"), "utf8");
+  console.log("[vars] Generated wrangler.toml from wrangler.toml.example");
+}
+
 let raw = readFileSync(configPath, "utf8");
 
 const workerName = readTomlValue(raw, /^\s*name\s*=\s*"([^"]+)"\s*$/m);
