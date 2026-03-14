@@ -5,6 +5,10 @@ export interface Env {
   PUBLIC_BASE_URL?: string;
   WORKER_BASE_URL?: string;
   SITE_TITLE?: string;
+  CLOUDFLARE_ACCOUNT_ID?: string;
+  CLOUDFLARE_API_TOKEN?: string;
+  R2_BUCKET_NAME?: string;
+  D1_DATABASE_ID?: string;
 }
 
 export type ImageRow = {
@@ -36,5 +40,6 @@ export type ConfigurationRow = {
   gif_source_max_mb: number;
   webp_upload_max_mb: number;
   svg_upload_max_mb: number;
+  cloudflare_api_token: string;
   updated_at: string;
 };

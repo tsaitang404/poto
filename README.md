@@ -114,6 +114,7 @@ CREATE INDEX IF NOT EXISTS idx_images_deleted_at ON images(deleted_at);
 
 ```bash
 ACCESS_PASSWORD=replace_with_strong_password
+CLOUDFLARE_API_TOKEN=replace_with_cloudflare_api_token
 ```
 
 `wrangler.toml` 里需要确认：
@@ -123,6 +124,13 @@ ACCESS_PASSWORD=replace_with_strong_password
 - `d1_databases.database_id`
 - `r2_buckets.bucket_name`（默认 `poto`，可改）
 - `d1_databases.database_name`（默认 `poto`，可改）
+- `CLOUDFLARE_API_TOKEN`：用于管理页统计读取 Cloudflare 平台指标
+
+如果你希望已部署的管理页统计直接读取 Cloudflare 平台指标，还需要把它注入为 Worker secret：
+
+```bash
+wrangler secret put CLOUDFLARE_API_TOKEN
+```
 
 域名默认策略：
 
@@ -134,6 +142,15 @@ ACCESS_PASSWORD=replace_with_strong_password
 
 - `database_name`：逻辑名称（你可自定义）
 - `database_id`：Cloudflare D1 的唯一标识（UUID）
+
+统计页说明：
+
+- R2 总使用量、R2 本月下载量直接来自 Cloudflare R2 GraphQL Analytics。
+- D1 总使用量直接来自 Cloudflare D1 REST `file_size`。
+- D1 本月查询量直接来自 Cloudflare D1 GraphQL Analytics。
+- 文件最大 Top 10、各类型文件数量来自业务表聚合，因为这些属于应用元数据统计。
+- 如果 `CLOUDFLARE_API_TOKEN` 或相关 Cloudflare 绑定缺失，`/api/stats` 会直接报错，不会回退到本地估算。
+- 设置组件中可单独保存 `CLOUDFLARE_API_TOKEN`；当该值非空时，它的优先级高于 Worker 默认环境变量中的 `CLOUDFLARE_API_TOKEN`。
 
 本项目提供自动化：
 
@@ -161,6 +178,8 @@ npm run dev
 说明：
 
 - `npm run dev` 会先自动执行 `npm run init:local`，确保本地 D1 表结构已初始化，再启动 `wrangler dev`。
+- `npm run dev` / `npm run dev:raw` 会在启动前把 `.env` 里的 `CLOUDFLARE_API_TOKEN` 同步到 `.dev.vars`，这样本地 Worker 也能读取统计平台接口。
+- `npm run dev` / `npm run dev:raw` 会固定监听 `http://localhost:8788`。
 - `npm run dev` 会显式覆盖本地运行的 URL 变量为 localhost：`WORKER_BASE_URL=http://localhost:8788`、`PUBLIC_BASE_URL=http://localhost:8788/files`，避免联调时误用线上域名。
 - 如果你只想直接启动 Worker（跳过自动初始化），可以使用 `npm run dev:raw`。
 

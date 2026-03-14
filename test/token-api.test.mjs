@@ -59,6 +59,8 @@ test("GET /api/settings returns default upload settings", async () => {
   assert.equal(body.gif_source_max_mb, 20);
   assert.equal(body.webp_upload_max_mb, 20);
   assert.equal(body.svg_upload_max_mb, 1);
+  assert.equal(body.cloudflare_api_token, "");
+  assert.equal(body.cloudflare_api_token_source, "env");
 });
 
 test("PUT /api/settings saves upload settings", async () => {
@@ -78,6 +80,7 @@ test("PUT /api/settings saves upload settings", async () => {
       gif_source_max_mb: 25,
       webp_upload_max_mb: 18.5,
       svg_upload_max_mb: 2,
+      cloudflare_api_token: "override-token",
     }),
   }), env);
   const body = await response.json();
@@ -91,7 +94,10 @@ test("PUT /api/settings saves upload settings", async () => {
   assert.equal(body.gif_source_max_mb, 25);
   assert.equal(body.webp_upload_max_mb, 18.5);
   assert.equal(body.svg_upload_max_mb, 2);
+  assert.equal(body.cloudflare_api_token, "override-token");
+  assert.equal(body.cloudflare_api_token_source, "configured");
   assert.equal(env.__state.configurationRow.webp_mode, "force");
+  assert.equal(env.__state.configurationRow.cloudflare_api_token, "override-token");
 });
 
 test("POST /api/upload enforces configured upload size limit", async () => {
@@ -198,6 +204,7 @@ function createEnv(seed = {}) {
       },
     },
     ACCESS_PASSWORD: "123456",
+    CLOUDFLARE_API_TOKEN: "env-token",
     __state: state,
   };
 }
@@ -247,7 +254,7 @@ function createStatement(query, state) {
         return {};
       }
       if (query.includes("INSERT INTO configuration")) {
-        const [webpMode, staticWebpQuality, gifWebpQuality, staticSourceMaxMb, gifSourceMaxMb, webpUploadMaxMb, svgUploadMaxMb, updatedAt] = values;
+        const [webpMode, staticWebpQuality, gifWebpQuality, staticSourceMaxMb, gifSourceMaxMb, webpUploadMaxMb, svgUploadMaxMb, cloudflareApiToken, updatedAt] = values;
         state.configurationRow = {
           webp_mode: webpMode,
           static_webp_quality: staticWebpQuality,
@@ -256,6 +263,7 @@ function createStatement(query, state) {
           gif_source_max_mb: gifSourceMaxMb,
           webp_upload_max_mb: webpUploadMaxMb,
           svg_upload_max_mb: svgUploadMaxMb,
+          cloudflare_api_token: cloudflareApiToken,
           updated_at: updatedAt,
         };
         return {};

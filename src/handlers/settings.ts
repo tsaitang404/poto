@@ -9,10 +9,15 @@ const DEFAULT_SETTINGS = {
   gif_source_max_mb: 20,
   webp_upload_max_mb: 20,
   svg_upload_max_mb: 1,
+  cloudflare_api_token: "",
 };
 
 export async function handleGetSettings(env: Env): Promise<Response> {
-  return json(await getUploadSettings(env));
+  const settings = await getUploadSettings(env);
+  return json({
+    ...settings,
+    cloudflare_api_token_source: getCloudflareApiTokenSource(settings, env),
+  });
 }
 
 export async function handleUpdateSettings(request: Request, env: Env): Promise<Response> {
@@ -37,9 +42,10 @@ export async function handleUpdateSettings(request: Request, env: Env): Promise<
        gif_source_max_mb,
        webp_upload_max_mb,
        svg_upload_max_mb,
+       cloudflare_api_token,
        updated_at
      )
-     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        webp_mode = excluded.webp_mode,
        static_webp_quality = excluded.static_webp_quality,
@@ -48,12 +54,18 @@ export async function handleUpdateSettings(request: Request, env: Env): Promise<
        gif_source_max_mb = excluded.gif_source_max_mb,
        webp_upload_max_mb = excluded.webp_upload_max_mb,
        svg_upload_max_mb = excluded.svg_upload_max_mb,
+       cloudflare_api_token = excluded.cloudflare_api_token,
        updated_at = excluded.updated_at`
   )
-    .bind(next.webp_mode, next.static_webp_quality, next.gif_webp_quality, next.static_source_max_mb, next.gif_source_max_mb, next.webp_upload_max_mb, next.svg_upload_max_mb, now)
+    .bind(next.webp_mode, next.static_webp_quality, next.gif_webp_quality, next.static_source_max_mb, next.gif_source_max_mb, next.webp_upload_max_mb, next.svg_upload_max_mb, next.cloudflare_api_token, now)
     .run();
 
-  return json({ ok: true, ...next, updated_at: now });
+  return json({
+    ok: true,
+    ...next,
+    updated_at: now,
+    cloudflare_api_token_source: getCloudflareApiTokenSource({ ...next, updated_at: now }, env),
+  });
 }
 
 export async function getUploadSettings(env: Env): Promise<ConfigurationRow> {
@@ -65,6 +77,7 @@ export async function getUploadSettings(env: Env): Promise<ConfigurationRow> {
             gif_source_max_mb,
             webp_upload_max_mb,
             svg_upload_max_mb,
+              cloudflare_api_token,
             updated_at
        FROM configuration
       WHERE id = 1`
@@ -82,6 +95,7 @@ function normalizeSettings(row: ConfigurationRow | null | undefined): Configurat
     gif_source_max_mb: clampMegabytes(row?.gif_source_max_mb, DEFAULT_SETTINGS.gif_source_max_mb),
     webp_upload_max_mb: clampMegabytes(row?.webp_upload_max_mb, DEFAULT_SETTINGS.webp_upload_max_mb),
     svg_upload_max_mb: clampMegabytes(row?.svg_upload_max_mb, DEFAULT_SETTINGS.svg_upload_max_mb),
+    cloudflare_api_token: normalizeToken(row?.cloudflare_api_token, DEFAULT_SETTINGS.cloudflare_api_token),
     updated_at: row?.updated_at ?? "",
   };
 }
@@ -96,7 +110,26 @@ function sanitizeSettings(payload: unknown, fallback: ConfigurationRow): Omit<Co
     gif_source_max_mb: clampMegabytes(data.gif_source_max_mb, fallback.gif_source_max_mb),
     webp_upload_max_mb: clampMegabytes(data.webp_upload_max_mb, fallback.webp_upload_max_mb),
     svg_upload_max_mb: clampMegabytes(data.svg_upload_max_mb, fallback.svg_upload_max_mb),
+    cloudflare_api_token: normalizeToken(data.cloudflare_api_token, fallback.cloudflare_api_token),
   };
+}
+
+export function getEffectiveCloudflareApiToken(env: Env, settings?: ConfigurationRow | null): string {
+  const configured = normalizeToken(settings?.cloudflare_api_token, "");
+  if (configured) {
+    return configured;
+  }
+  return normalizeToken(env.CLOUDFLARE_API_TOKEN, "");
+}
+
+export function getCloudflareApiTokenSource(settings: ConfigurationRow | null | undefined, env: Env): "configured" | "env" | "missing" {
+  if (normalizeToken(settings?.cloudflare_api_token, "")) {
+    return "configured";
+  }
+  if (normalizeToken(env.CLOUDFLARE_API_TOKEN, "")) {
+    return "env";
+  }
+  return "missing";
 }
 
 function normalizeMode(value: unknown, fallback: WebpMode = DEFAULT_SETTINGS.webp_mode): WebpMode {
@@ -117,4 +150,11 @@ function clampMegabytes(value: unknown, fallback: number): number {
     return fallback;
   }
   return Math.max(0.1, Math.min(500, Math.round(num * 10) / 10));
+}
+
+function normalizeToken(value: unknown, fallback: string): string {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+  return value.trim();
 }

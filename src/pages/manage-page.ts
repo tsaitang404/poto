@@ -44,15 +44,42 @@ export function renderManagePage(title: string): string {
       justify-content: space-between;
       align-items: flex-start;
       gap: 14px;
-      margin-bottom: 14px;
+      margin-bottom: 10px;
       flex-wrap: wrap;
     }
+    .title {
+      flex: 1;
+      min-width: 0;
+    }
     .title h2 { margin: 0; font-size: 24px; }
-    .subtitle { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+    .subtitle-line {
+      margin: 6px 0 0;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .subtitle { margin: 0; color: var(--muted); font-size: 13px; }
+    .top-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
     .toolbar {
       display: flex;
       align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .toolbar-main {
+      display: flex;
+      align-items: center;
       gap: 8px;
+      flex: 1;
+      min-width: min(360px, 100%);
       flex-wrap: wrap;
     }
     .status-pill {
@@ -78,15 +105,124 @@ export function renderManagePage(title: string): string {
     .control {
       width: min(260px, 70vw);
       padding: 0 12px;
+      flex: 1;
+      min-width: 220px;
     }
     .tool-btn {
       padding: 0 12px;
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      font-size: 13px;
+      line-height: 1;
     }
     .list {
       display: grid;
       gap: 14px;
       margin-top: 12px;
+    }
+    .stats-panel {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+      background: linear-gradient(180deg, #fffaf4 0%, #fff 100%);
+      margin-bottom: 16px;
+    }
+    .stats-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .stats-head h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+    .stats-meta {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .stat-card {
+      border: 1px solid #ead9c9;
+      border-radius: 14px;
+      padding: 14px;
+      background: #fff;
+      min-height: 108px;
+    }
+    .stat-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .stat-value {
+      font-size: 28px;
+      line-height: 1.05;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+    .stat-source {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--primary);
+    }
+    .stats-tables {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .stats-block {
+      border: 1px solid #ead9c9;
+      border-radius: 14px;
+      background: #fff;
+      overflow: hidden;
+      min-width: 0;
+    }
+    .stats-block-head {
+      padding: 12px 14px;
+      border-bottom: 1px solid #f1e4d7;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .stats-table-wrap {
+      overflow-x: auto;
+    }
+    .stats-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .stats-table th,
+    .stats-table td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid #f5eadf;
+      vertical-align: top;
+    }
+    .stats-table th {
+      color: var(--muted);
+      font-weight: 600;
+      background: #fffaf4;
+      white-space: nowrap;
+    }
+    .stats-table tr:last-child td {
+      border-bottom: none;
+    }
+    .stats-empty {
+      padding: 18px 14px;
+      color: var(--muted);
+      font-size: 12px;
     }
     .pager {
       margin-top: 14px;
@@ -210,7 +346,7 @@ export function renderManagePage(title: string): string {
       border-radius: 8px;
       background: #fff;
       border: 1px solid #ecdccc;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-family: inherit;
       font-size: 12px;
       word-break: break-all;
       display: none;
@@ -260,7 +396,7 @@ export function renderManagePage(title: string): string {
       flex-wrap: wrap;
     }
     .meta { font-size: 12px; color: var(--muted); }
-    .id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #866753; }
+    .id { font-family: inherit; color: #866753; }
     input[type="text"] {
       width: 100%;
       padding: 9px 10px;
@@ -304,6 +440,10 @@ export function renderManagePage(title: string): string {
     a { color: var(--primary); }
     @media (max-width: 680px) {
       .wrap { padding: 14px; }
+      .stats-grid,
+      .stats-tables {
+        grid-template-columns: 1fr;
+      }
       .item {
         grid-template-columns: 1fr;
       }
@@ -311,8 +451,21 @@ export function renderManagePage(title: string): string {
         width: 100%;
         height: 180px;
       }
-      .control { width: 100%; }
-      .toolbar { width: 100%; }
+      .toolbar,
+      .toolbar-main,
+      .top-actions {
+        width: 100%;
+      }
+      .toolbar {
+        justify-content: flex-start;
+      }
+      .top-actions {
+        justify-content: flex-start;
+      }
+      .control {
+        width: 100%;
+        min-width: 0;
+      }
     }
   </style>
 </head>
@@ -321,16 +474,48 @@ export function renderManagePage(title: string): string {
     <div class="topbar">
       <div class="title">
         <h2>图片管理</h2>
-        <p class="subtitle">在这里快速预览、改标题、删除历史图片</p>
+        <div class="subtitle-line">
+          <p class="subtitle">在这里快速预览、改标题、删除历史图片</p>
+        </div>
       </div>
-      <div class="toolbar">
-        <span id="status" class="status-pill">加载中...</span>
-        <input id="filter" class="control" type="search" placeholder="搜索标题或 ID" />
+      <div class="top-actions">
         <button id="reload" class="tool-btn" type="button">刷新</button>
+        <button id="statsToggle" class="tool-btn" type="button" aria-expanded="false">查看统计</button>
         <button id="settingsBtn" class="tool-btn" type="button">设置</button>
-        <a href="/">返回上传页</a>
+        <a class="tool-btn" href="/">返回上传页</a>
       </div>
     </div>
+    <div class="toolbar">
+      <div class="toolbar-main">
+        <span id="status" class="status-pill">加载中...</span>
+        <input id="filter" class="control" type="search" placeholder="搜索标题或 ID" />
+      </div>
+    </div>
+    <section id="statsPanel" class="stats-panel" hidden>
+      <div class="stats-head">
+        <div>
+          <h3>统计概览</h3>
+          <div id="statsMeta" class="stats-meta">正在读取统计...</div>
+        </div>
+      </div>
+      <div id="statsSummary" class="stats-grid">
+        <div class="empty">正在读取统计...</div>
+      </div>
+      <div class="stats-tables">
+        <section class="stats-block">
+          <div class="stats-block-head">文件最大 Top 10</div>
+          <div id="statsTopFiles" class="stats-table-wrap"></div>
+        </section>
+        <section class="stats-block">
+          <div class="stats-block-head">各类型文件数量</div>
+          <div id="statsMimeBreakdown" class="stats-table-wrap"></div>
+        </section>
+        <section class="stats-block">
+          <div class="stats-block-head">各文件本月访问量</div>
+          <div id="statsMonthlyAccess" class="stats-table-wrap"></div>
+        </section>
+      </div>
+    </section>
     <section id="list" class="list"></section>
     <div class="pager">
       <button id="prevPage" class="tool-btn" type="button">上一页</button>
@@ -390,6 +575,11 @@ export function renderManagePage(title: string): string {
             <div class="settings-field">
               <label for="svgUploadMaxMb">SVG 上限（MB）</label>
               <input id="svgUploadMaxMb" class="control" type="number" min="0.1" max="500" step="0.1" value="1" />
+            </div>
+            <div class="settings-field">
+              <label for="cloudflareApiToken">CLOUDFLARE_API_TOKEN</label>
+              <input id="cloudflareApiToken" class="control" type="password" spellcheck="false" autocomplete="off" placeholder="留空时使用默认环境变量" />
+              <p id="cloudflareApiTokenMeta" class="settings-help">留空则使用 Worker 默认注入的 Token；填写后优先使用这里保存的值。</p>
             </div>
           </div>
           <div class="settings-actions">

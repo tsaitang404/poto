@@ -32,6 +32,11 @@ for (const fileName of files) {
     continue;
   }
 
+  if (fileName === "0002_add_cloudflare_api_token_setting.sql" && hasCloudflareApiTokenColumn()) {
+    markMigrationApplied(fileName);
+    continue;
+  }
+
   runSqlFile(resolve(dbDir, fileName));
   markMigrationApplied(fileName);
 }
@@ -57,6 +62,12 @@ function hasUploadLimitColumns() {
     && names.has("gif_source_max_mb")
     && names.has("webp_upload_max_mb")
     && names.has("svg_upload_max_mb");
+}
+
+function hasCloudflareApiTokenColumn() {
+  const rows = runSql("PRAGMA table_info(configuration)");
+  const names = new Set(rows.map((row) => String(row.name)));
+  return names.has("cloudflare_api_token");
 }
 
 function markMigrationApplied(fileName) {

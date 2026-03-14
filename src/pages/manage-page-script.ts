@@ -3,6 +3,13 @@ const list = document.getElementById('list');
 const status = document.getElementById('status');
 const filter = document.getElementById('filter');
 const reload = document.getElementById('reload');
+const statsToggle = document.getElementById('statsToggle');
+const statsPanel = document.getElementById('statsPanel');
+const statsSummary = document.getElementById('statsSummary');
+const statsTopFiles = document.getElementById('statsTopFiles');
+const statsMimeBreakdown = document.getElementById('statsMimeBreakdown');
+const statsMonthlyAccess = document.getElementById('statsMonthlyAccess');
+const statsMeta = document.getElementById('statsMeta');
 const rotateToken = document.getElementById('rotateToken');
 const copyToken = document.getElementById('copyToken');
 const tokenMeta = document.getElementById('tokenMeta');
@@ -19,6 +26,8 @@ const staticSourceMaxMb = document.getElementById('staticSourceMaxMb');
 const gifSourceMaxMb = document.getElementById('gifSourceMaxMb');
 const webpUploadMaxMb = document.getElementById('webpUploadMaxMb');
 const svgUploadMaxMb = document.getElementById('svgUploadMaxMb');
+const cloudflareApiToken = document.getElementById('cloudflareApiToken');
+const cloudflareApiTokenMeta = document.getElementById('cloudflareApiTokenMeta');
 const saveSettings = document.getElementById('saveSettings');
 const settingsSaveStatus = document.getElementById('settingsSaveStatus');
 const settingsBtn = document.getElementById('settingsBtn');
@@ -31,12 +40,19 @@ let currentPage = 1;
 let totalItems = 0;
 let totalPages = 1;
 let hasNextPage = false;
+let statsLoaded = false;
 
 loadImages();
 loadTokenInfo();
 loadSettings();
 filter.addEventListener('input', renderCurrent);
-reload.addEventListener('click', () => loadImages(currentPage));
+reload.addEventListener('click', () => {
+  loadImages(currentPage);
+  if (!statsPanel.hidden) {
+    loadStats(true);
+  }
+});
+statsToggle.addEventListener('click', toggleStatsPanel);
 pageSizeSelect.addEventListener('change', () => loadImages(1));
 settingsBtn.addEventListener('click', openSettings);
 settingsClose.addEventListener('click', closeSettings);
@@ -83,6 +99,8 @@ async function loadSettings() {
   gifSourceMaxMb.value = String(body.gif_source_max_mb || 20);
   webpUploadMaxMb.value = String(body.webp_upload_max_mb || 20);
   svgUploadMaxMb.value = String(body.svg_upload_max_mb || 1);
+  cloudflareApiToken.value = body.cloudflare_api_token || '';
+  syncCloudflareTokenMeta(body.cloudflare_api_token_source || 'missing');
   syncWebpParamVisibility();
   settingsSaveStatus.textContent = '设置已加载';
 }
@@ -104,6 +122,7 @@ async function saveUploadSettings() {
       gif_source_max_mb: Number(gifSourceMaxMb.value) || 20,
       webp_upload_max_mb: Number(webpUploadMaxMb.value) || 20,
       svg_upload_max_mb: Number(svgUploadMaxMb.value) || 1,
+      cloudflare_api_token: cloudflareApiToken.value || '',
     }),
   });
   const body = await res.json();
@@ -118,8 +137,133 @@ async function saveUploadSettings() {
   gifSourceMaxMb.value = String(body.gif_source_max_mb || 20);
   webpUploadMaxMb.value = String(body.webp_upload_max_mb || 20);
   svgUploadMaxMb.value = String(body.svg_upload_max_mb || 1);
+  cloudflareApiToken.value = body.cloudflare_api_token || '';
+  syncCloudflareTokenMeta(body.cloudflare_api_token_source || 'missing');
   syncWebpParamVisibility();
   settingsSaveStatus.textContent = '设置已保存';
+}
+
+function syncCloudflareTokenMeta(source) {
+  if (source === 'configured') {
+    cloudflareApiTokenMeta.textContent = '当前优先使用这里保存的 Token；会覆盖 Worker 默认环境变量。';
+    return;
+  }
+  if (source === 'env') {
+    cloudflareApiTokenMeta.textContent = '当前未设置覆盖值，正在使用 Worker 默认环境变量中的 Token。';
+    return;
+  }
+  cloudflareApiTokenMeta.textContent = '当前未配置 Token，统计接口将直接报错。';
+}
+
+async function loadStats(forceReload) {
+  if (statsLoaded && !forceReload) {
+    return;
+  }
+  statsMeta.textContent = '正在获取统计...';
+  statsSummary.innerHTML = '<div class="empty">正在读取统计...</div>';
+  statsTopFiles.innerHTML = '<div class="stats-empty">正在读取...</div>';
+  statsMimeBreakdown.innerHTML = '<div class="stats-empty">正在读取...</div>';
+  statsMonthlyAccess.innerHTML = '<div class="stats-empty">正在读取...</div>';
+
+  const res = await fetch('/api/stats');
+  const body = await res.json();
+  if (!res.ok) {
+    statsMeta.textContent = '读取统计失败: ' + (body.error || 'unknown');
+    statsSummary.innerHTML = '<div class="empty">统计加载失败</div>';
+    statsTopFiles.innerHTML = '<div class="stats-empty">统计加载失败</div>';
+    statsMimeBreakdown.innerHTML = '<div class="stats-empty">统计加载失败</div>';
+    statsMonthlyAccess.innerHTML = '<div class="stats-empty">统计加载失败</div>';
+    return;
+  }
+
+  statsLoaded = true;
+
+  renderStatsSummary(body.summary || {}, (body.meta && body.meta.sources) || {});
+  renderTopFilesTable(body.top_files || []);
+  renderMimeTable(body.mime_breakdown || []);
+  renderMonthlyAccessTable(body.monthly_access || []);
+
+  statsMeta.textContent = '已使用 Cloudflare 平台统计。';
+}
+
+async function toggleStatsPanel() {
+  const willOpen = statsPanel.hidden;
+  statsPanel.hidden = !willOpen;
+  statsToggle.textContent = willOpen ? '收起统计' : '查看统计';
+  statsToggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+  if (willOpen) {
+    await loadStats(false);
+  }
+}
+
+function renderStatsSummary(summary, sources) {
+  const cards = [
+    {
+      label: 'R2 总使用量',
+      value: fmtSize(summary.r2_total_usage_bytes || 0),
+      source: fmtSourceLabel(sources.r2_total_usage),
+    },
+    {
+      label: 'D1 总使用量',
+      value: fmtSize(summary.d1_total_usage_bytes || 0),
+      source: fmtSourceLabel(sources.d1_total_usage),
+    },
+    {
+      label: 'R2 本月下载量',
+      value: fmtCount(summary.r2_monthly_downloads || 0),
+      source: fmtSourceLabel(sources.r2_monthly_downloads),
+    },
+    {
+      label: 'D1 本月查询量',
+      value: fmtCount(summary.d1_monthly_queries || 0),
+      source: fmtSourceLabel(sources.d1_monthly_queries),
+    },
+  ];
+
+  statsSummary.innerHTML = cards.map((card) => {
+    return '<article class="stat-card">' +
+      '<div class="stat-label">' + escapeHtml(card.label) + '</div>' +
+      '<div class="stat-value">' + escapeHtml(card.value) + '</div>' +
+      '<div class="stat-source">来源：' + escapeHtml(card.source) + '</div>' +
+    '</article>';
+  }).join('');
+}
+
+function renderTopFilesTable(items) {
+  renderTable(statsTopFiles, ['文件', '类型', '大小'], items.map((item) => [
+    '<a href="/i/' + escapeAttr(item.id) + '" target="_blank" rel="noreferrer">' + escapeHtml(item.title || item.id) + '</a>',
+    escapeHtml(item.mime_type || '-'),
+    escapeHtml(fmtSize(item.size_bytes || 0)),
+  ]), '暂无文件数据');
+}
+
+function renderMimeTable(items) {
+  renderTable(statsMimeBreakdown, ['类型', '数量', '总大小'], items.map((item) => [
+    escapeHtml(item.mime_type || 'unknown'),
+    escapeHtml(fmtCount(item.file_count || 0)),
+    escapeHtml(fmtSize(item.total_bytes || 0)),
+  ]), '暂无类型统计');
+}
+
+function renderMonthlyAccessTable(items) {
+  renderTable(statsMonthlyAccess, ['文件', '下载量', '链接'], items.map((item) => [
+    escapeHtml(item.title || item.id),
+    escapeHtml(fmtCount(item.downloads || 0)),
+    '<a href="/i/' + escapeAttr(item.id) + '" target="_blank" rel="noreferrer">查看</a>',
+  ]), '本月暂无访问记录');
+}
+
+function renderTable(container, headers, rows, emptyText) {
+  if (!rows.length) {
+    container.innerHTML = '<div class="stats-empty">' + escapeHtml(emptyText) + '</div>';
+    return;
+  }
+
+  container.innerHTML = '<table class="stats-table"><thead><tr>' +
+    headers.map((header) => '<th>' + escapeHtml(header) + '</th>').join('') +
+    '</tr></thead><tbody>' +
+    rows.map((cells) => '<tr>' + cells.map((cell) => '<td>' + cell + '</td>').join('') + '</tr>').join('') +
+    '</tbody></table>';
 }
 
 async function loadImages(page = 1) {
@@ -265,13 +409,36 @@ list.addEventListener('click', async (e) => {
     status.textContent = '删除成功';
     const nextPageNumber = allItems.length === 1 && currentPage > 1 ? currentPage - 1 : currentPage;
     await loadImages(nextPageNumber);
+    if (!statsPanel.hidden) {
+      await loadStats(true);
+    }
   }
 });
 
 function fmtSize(bytes) {
-  return bytes >= 1024 * 1024
-    ? (bytes / 1024 / 1024).toFixed(2) + ' MB'
-    : (bytes / 1024).toFixed(1) + ' KB';
+  if (bytes >= 1024 * 1024 * 1024) {
+    return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+  }
+  if (bytes >= 1024 * 1024) {
+    return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+  }
+  if (bytes >= 1024) {
+    return (bytes / 1024).toFixed(1) + ' KB';
+  }
+  return String(bytes || 0) + ' B';
+}
+
+function fmtCount(value) {
+  return Number(value || 0).toLocaleString('zh-CN');
+}
+
+function fmtSourceLabel(source) {
+  if (source === 'cloudflare-r2-graphql') return 'Cloudflare R2 GraphQL';
+  if (source === 'cloudflare-d1-graphql') return 'Cloudflare D1 GraphQL';
+  if (source === 'cloudflare-d1-rest') return 'Cloudflare D1 REST';
+  if (source === 'images-sum') return '图片表汇总';
+  if (source === 'd1-pragma') return 'D1 PRAGMA 估算';
+  return '不可用';
 }
 
 function fmtDate(input) {

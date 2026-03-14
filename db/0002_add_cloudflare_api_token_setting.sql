@@ -1,0 +1,1 @@
+ALTER TABLE configuration ADD COLUMN cloudflare_api_token TEXT NOT NULL DEFAULT '';
