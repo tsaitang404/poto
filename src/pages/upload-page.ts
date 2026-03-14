@@ -281,7 +281,7 @@ export function renderUploadPage(title: string): string {
         <span class="drop-sub">支持单图和多图。选中后会在下方生成预览列表，你可以逐张修改标题再上传。</span>
       </label>
       <p class="hint">上传策略和大小限制由管理页设置决定：可强制转为 WebP、智能选择更小文件，或保留原始格式。SVG 始终原样上传并做安全检查。选择后可在下方列表中双击标题修改，回车保存。</p>
-      <input class="file-input" id="image" name="image" type="file" accept="image/*" multiple required />
+      <input class="file-input" id="image" name="image" type="file" accept="image/*" multiple />
       <button type="submit">上传到 R2</button>
     </form>
     <div id="preview" class="queue-empty">暂未选择图片</div>
