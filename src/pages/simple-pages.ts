@@ -25,7 +25,7 @@ export function renderViewPage(image: { id: string; title: string; public_url: s
       padding: 16px;
       width: min(860px, 100%);
     }
-    img { max-width: 100%; border-radius: 10px; display: block; }
+    img { max-width: 100%; border-radius: 10px; display: block; margin: 0 auto; }
     .url {
       margin-top: 10px;
       padding: 10px;

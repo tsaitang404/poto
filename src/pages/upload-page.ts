@@ -17,6 +17,7 @@ export function renderUploadPage(title: string): string {
       --line: #e5d8c5;
     }
     * { box-sizing: border-box; }
+    button { font: inherit; }
     body {
       margin: 0;
       font-family: "Noto Serif SC", "Source Han Serif SC", serif;
@@ -238,6 +239,45 @@ export function renderUploadPage(title: string): string {
       line-height: 1.45;
       word-break: break-word;
     }
+    .queue-url {
+      background: #edf7f1;
+      border: 1px solid #c3e6d1;
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: grid;
+      gap: 6px;
+    }
+    .url-text {
+      font-size: 12px;
+      font-family: 'Menlo', 'Consolas', monospace;
+      word-break: break-all;
+      color: #1e5c36;
+      line-height: 1.6;
+    }
+    .url-actions { display: flex; gap: 8px; }
+    .copy-btn { flex: 4; }
+    .view-btn { flex: 1; }
+    .copy-btn, .view-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      height: 26px;
+      font-size: 12px;
+      line-height: 1;
+      padding: 0 12px;
+      background: #2a6e46;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+      text-decoration: none;
+      transition: background 0.15s;
+      vertical-align: middle;
+    }
+    .copy-btn:hover, .view-btn:hover { background: #1b5234; }
+    .copy-btn.copied { background: #4caf72; }
     .queue-empty {
       margin-top: 14px;
       border: 1px dashed var(--line);
@@ -281,7 +321,7 @@ export function renderUploadPage(title: string): string {
         <span class="drop-sub">支持单图和多图。选中后会在下方生成预览列表，你可以逐张修改标题再上传。</span>
       </label>
       <p class="hint">上传策略和大小限制由管理页设置决定：可强制转为 WebP、智能选择更小文件，或保留原始格式。SVG 始终原样上传并做安全检查。选择后可在下方列表中双击标题修改，回车保存。</p>
-      <input class="file-input" id="image" name="image" type="file" accept="image/*" multiple required />
+      <input class="file-input" id="image" name="image" type="file" accept="image/*" multiple />
       <button type="submit">上传到 R2</button>
     </form>
     <div id="preview" class="queue-empty">暂未选择图片</div>
