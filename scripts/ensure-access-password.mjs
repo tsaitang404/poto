@@ -1,7 +1,7 @@
 import "./load-env.mjs";
 
 import { createHash } from "node:crypto";
-import { execSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -65,12 +65,11 @@ function sha256Hex(text) {
 }
 
 function runSql(sql) {
-  const command = `npx wrangler d1 execute ${shellEscape(databaseName)} --command=${shellEscape(sql)} --json ${modeFlag}`;
-  execSync(command, { stdio: "inherit" });
-}
-
-function shellEscape(value) {
-  return `'${String(value).replace(/'/g, `"'"'`)}'`;
+  const args = ["wrangler", "d1", "execute", databaseName, "--command", sql, "--json", modeFlag];
+  const result = spawnSync("npx", args, { stdio: "inherit" });
+  if (result.status !== 0) {
+    throw new Error("Failed to execute access password SQL");
+  }
 }
 
 function quoteSql(value) {
