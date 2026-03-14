@@ -2,10 +2,8 @@ name: Deploy Worker
 
 on:
   push:
-    branches:
-      - main
-      - master
-  workflow_dispatch:
+    tags:
+      - "*"
 
 concurrency:
   group: deploy-worker-${{ github.ref }}
