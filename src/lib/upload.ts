@@ -3,8 +3,34 @@ import type { Env } from "../types";
 export const MAX_WEBP_UPLOAD_BYTES = 20 * 1024 * 1024;
 export const MAX_SVG_UPLOAD_BYTES = 1 * 1024 * 1024;
 
+const ACCEPTED_IMAGE_MIMES: readonly string[] = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/avif",
+  "image/svg+xml",
+  "image/bmp",
+  "image/tiff",
+  "image/x-icon",
+  "image/vnd.microsoft.icon",
+];
+
+const MIME_TO_EXT: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/gif": "gif",
+  "image/webp": "webp",
+  "image/avif": "avif",
+  "image/svg+xml": "svg",
+  "image/bmp": "bmp",
+  "image/tiff": "tiff",
+  "image/x-icon": "ico",
+  "image/vnd.microsoft.icon": "ico",
+};
+
 export function isAcceptedUploadMime(mime: string): boolean {
-  return mime === "image/webp" || mime === "image/svg+xml";
+  return ACCEPTED_IMAGE_MIMES.includes(mime);
 }
 
 export function getMaxUploadBytes(mime: string): number {
@@ -15,17 +41,11 @@ export function getMaxUploadBytes(mime: string): number {
 }
 
 export function normalizeStoredMime(mime: string): string {
-  if (mime === "image/svg+xml") {
-    return mime;
-  }
-  return "image/webp";
+  return mime;
 }
 
 export function extensionByMime(mime: string): string {
-  if (mime === "image/svg+xml") {
-    return "svg";
-  }
-  return "webp";
+  return MIME_TO_EXT[mime] ?? "bin";
 }
 
 export function validateSvgContent(bytes: Uint8Array): string | null {

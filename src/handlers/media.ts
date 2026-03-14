@@ -28,7 +28,7 @@ export async function handleUpload(request: Request, env: Env, workerBaseUrl: st
     return json({ error: "only image uploads are allowed" }, 400);
   }
   if (!isAcceptedUploadMime(file.type)) {
-    return json({ error: "only image/webp and image/svg+xml are accepted" }, 400);
+    return json({ error: "unsupported image format: " + file.type }, 400);
   }
 
   const maxBytes = getMaxUploadBytes(file.type);
