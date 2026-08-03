@@ -102,17 +102,45 @@ export async function analyzeImage(
       temperature: 0.2,
     });
     const anyResult = result as {
-      response?: string;
-      result?: string | { choices?: Array<{ message?: { content?: string } }> };
+      response?: string | { description?: string; ocr?: string; tags?: string };
+      result?: string | { response?: string | { description?: string; ocr?: string; tags?: string } } | { choices?: Array<{ message?: { content?: string } }> };
     };
-    // 兼容多种返回格式：{response: string} / {result: string} / OpenAI 风格 {result: {choices:[{message:{content}}]}}
+    // 兼容多种返回格式：
+    // 1) {response: string}
+    // 2) {result: {response: {description, ocr, tags}}}  ← vision 模型实际格式
+    // 3) {result: string}
+    // 4) OpenAI 风格 {result: {choices:[{message:{content}}]}}
     if (typeof anyResult?.response === "string") {
       raw = anyResult.response;
+    } else if (anyResult?.response && typeof anyResult.response === "object") {
+      // vision 模型返回对象：直接构造 JSON
+      const r = anyResult.response as { description?: string; ocr?: string; tags?: string };
+      raw = JSON.stringify({
+        description: r.description || "",
+        ocr: r.ocr || "",
+        tags: r.tags || "",
+      });
     } else if (typeof anyResult?.result === "string") {
       raw = anyResult.result;
     } else {
-      const r = anyResult?.result as { choices?: Array<{ message?: { content?: string } }> } | undefined;
-      raw = r?.choices?.[0]?.message?.content || "";
+      const rr = anyResult?.result as { response?: string | { description?: string; ocr?: string; tags?: string } } | { choices?: Array<{ message?: { content?: string } }> } | undefined;
+      if (rr && typeof rr === "object") {
+        if ("response" in rr) {
+          if (typeof rr.response === "string") {
+            raw = rr.response;
+          } else if (rr.response && typeof rr.response === "object") {
+            const r = rr.response as { description?: string; ocr?: string; tags?: string };
+            raw = JSON.stringify({
+              description: r.description || "",
+              ocr: r.ocr || "",
+              tags: r.tags || "",
+            });
+          }
+        } else if ("choices" in rr) {
+          const ch = rr.choices as Array<{ message?: { content?: string } }> | undefined;
+          raw = ch?.[0]?.message?.content || "";
+        }
+      }
     }
   } else {
     // fallback：直接用 fetch CF API（需要 env.CLOUDFLARE_API_TOKEN）
