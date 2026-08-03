@@ -25,6 +25,7 @@ const rotateToken = document.getElementById('rotateToken');
 const copyToken = document.getElementById('copyToken');
 const tokenMeta = document.getElementById('tokenMeta');
 const tokenValue = document.getElementById('tokenValue');
+const tokenStatus = document.getElementById('tokenStatus');
 const pageInfo = document.getElementById('pageInfo');
 const prevPage = document.getElementById('prevPage');
 const nextPage = document.getElementById('nextPage');

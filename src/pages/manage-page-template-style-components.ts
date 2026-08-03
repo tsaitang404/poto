@@ -138,6 +138,12 @@ export const managePageTemplateStyleComponents = `
       color: var(--muted);
       margin-top: 6px;
     }
+    .token-status {
+      font-size: 12px;
+      margin-top: 8px;
+      min-height: 16px;
+      color: var(--muted);
+    }
     .item {
       border: 1px solid var(--line);
       border-radius: 12px;

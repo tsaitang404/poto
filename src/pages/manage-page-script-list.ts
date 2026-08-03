@@ -175,11 +175,11 @@ async function rotateUploadToken() {
   if (!confirm('确认生成新 Token 吗？旧 Token 将立即失效。')) {
     return;
   }
-  status.textContent = '正在生成 Token...';
+  tokenStatus.textContent = '正在生成 Token...';
   const res = await fetch('/api/token/rotate', { method: 'POST' });
   const body = await res.json();
   if (!res.ok) {
-    status.textContent = 'Token 生成失败: ' + (body.error || 'unknown');
+    tokenStatus.textContent = 'Token 生成失败: ' + (body.error || 'unknown');
     return;
   }
   latestToken = body.token || '';
@@ -187,17 +187,17 @@ async function rotateUploadToken() {
   tokenValue.style.display = latestToken ? 'block' : 'none';
   rotateToken.textContent = '轮换 Token';
   tokenMeta.textContent = 'Token 已轮换，最近轮换时间：' + fmtDate(body.rotated_at || '');
-  status.textContent = 'Token 生成成功';
+  tokenStatus.textContent = 'Token 生成成功';
 }
 
 async function copyUploadToken() {
   if (!latestToken) {
-    status.textContent = '请先点击“生成 Token”';
+    tokenStatus.textContent = '请先点击“生成 Token”';
     return;
   }
   try {
     await navigator.clipboard.writeText(latestToken);
-    status.textContent = 'Token 已复制';
+    tokenStatus.textContent = 'Token 已复制';
   } catch (err) {
     // fallback: 兼容不支持 Clipboard API 的环境（非 HTTPS、旧浏览器等）
     try {
@@ -209,9 +209,9 @@ async function copyUploadToken() {
       ta.select();
       const ok = document.execCommand('copy');
       document.body.removeChild(ta);
-      status.textContent = ok ? 'Token 已复制' : '复制失败，请手动选择复制';
+      tokenStatus.textContent = ok ? 'Token 已复制' : '复制失败，请手动选择复制';
     } catch (err2) {
-      status.textContent = '复制失败，请手动选择复制';
+      tokenStatus.textContent = '复制失败，请手动选择复制';
     }
   }
 }
