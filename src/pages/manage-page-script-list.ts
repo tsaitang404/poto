@@ -195,8 +195,25 @@ async function copyUploadToken() {
   if (!latestToken) {
     return;
   }
-  await navigator.clipboard.writeText(latestToken);
-  status.textContent = 'Token 已复制';
+  try {
+    await navigator.clipboard.writeText(latestToken);
+    status.textContent = 'Token 已复制';
+  } catch (err) {
+    // fallback: 兼容不支持 Clipboard API 的环境（非 HTTPS、旧浏览器等）
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = latestToken;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      status.textContent = ok ? 'Token 已复制' : '复制失败，请手动选择复制';
+    } catch (err2) {
+      status.textContent = '复制失败，请手动选择复制';
+    }
+  }
 }
 
 list.addEventListener('click', async (e) => {
