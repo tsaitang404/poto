@@ -12,6 +12,7 @@ const DEFAULT_SETTINGS = {
   cloudflare_api_token: "",
   ai_enabled: 1,
   ai_model: "@cf/meta/llama-3.2-11b-vision-instruct",
+  ai_text_model: "@cf/meta/llama-3.1-8b-fast-v2",
   ai_max_daily: 200,
 };
 
@@ -48,10 +49,11 @@ export async function handleUpdateSettings(request: Request, env: Env): Promise<
       cloudflare_api_token,
       ai_enabled,
       ai_model,
+      ai_text_model,
       ai_max_daily,
       updated_at
     )
-    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       webp_mode = excluded.webp_mode,
       static_webp_quality = excluded.static_webp_quality,
@@ -63,10 +65,11 @@ export async function handleUpdateSettings(request: Request, env: Env): Promise<
       cloudflare_api_token = excluded.cloudflare_api_token,
       ai_enabled = excluded.ai_enabled,
       ai_model = excluded.ai_model,
+      ai_text_model = excluded.ai_text_model,
       ai_max_daily = excluded.ai_max_daily,
       updated_at = excluded.updated_at`
   )
-    .bind(next.webp_mode, next.static_webp_quality, next.gif_webp_quality, next.static_source_max_mb, next.gif_source_max_mb, next.webp_upload_max_mb, next.svg_upload_max_mb, next.cloudflare_api_token, next.ai_enabled, next.ai_model, next.ai_max_daily, now)
+    .bind(next.webp_mode, next.static_webp_quality, next.gif_webp_quality, next.static_source_max_mb, next.gif_source_max_mb, next.webp_upload_max_mb, next.svg_upload_max_mb, next.cloudflare_api_token, next.ai_enabled, next.ai_model, next.ai_text_model, next.ai_max_daily, now)
     .run();
 
   return json({
@@ -89,6 +92,7 @@ export async function getUploadSettings(env: Env): Promise<ConfigurationRow> {
               cloudflare_api_token,
               ai_enabled,
               ai_model,
+              ai_text_model,
               ai_max_daily,
             updated_at
       FROM configuration
@@ -110,6 +114,7 @@ function normalizeSettings(row: ConfigurationRow | null | undefined): Configurat
     cloudflare_api_token: normalizeToken(row?.cloudflare_api_token, DEFAULT_SETTINGS.cloudflare_api_token),
     ai_enabled: normalizeInt(row?.ai_enabled, DEFAULT_SETTINGS.ai_enabled, 0, 1),
     ai_model: normalizeModel(row?.ai_model, DEFAULT_SETTINGS.ai_model),
+    ai_text_model: normalizeModel(row?.ai_text_model, DEFAULT_SETTINGS.ai_text_model),
     ai_max_daily: normalizeInt(row?.ai_max_daily, DEFAULT_SETTINGS.ai_max_daily, 1, 10000),
     updated_at: row?.updated_at ?? "",
   };
@@ -128,6 +133,7 @@ function sanitizeSettings(payload: unknown, fallback: ConfigurationRow): Omit<Co
     cloudflare_api_token: normalizeToken(data.cloudflare_api_token, fallback.cloudflare_api_token),
     ai_enabled: normalizeInt(data.ai_enabled, fallback.ai_enabled, 0, 1),
     ai_model: normalizeModel(data.ai_model, fallback.ai_model),
+    ai_text_model: normalizeModel(data.ai_text_model, fallback.ai_text_model),
     ai_max_daily: normalizeInt(data.ai_max_daily, fallback.ai_max_daily, 1, 10000),
   };
 }

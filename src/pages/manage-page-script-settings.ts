@@ -40,6 +40,10 @@ const webpUploadMaxMb = document.getElementById('webpUploadMaxMb');
 const svgUploadMaxMb = document.getElementById('svgUploadMaxMb');
 const cloudflareApiToken = document.getElementById('cloudflareApiToken');
 const cloudflareApiTokenMeta = document.getElementById('cloudflareApiTokenMeta');
+const aiEnabled = document.getElementById('aiEnabled');
+const aiVisionModel = document.getElementById('aiVisionModel');
+const aiTextModel = document.getElementById('aiTextModel');
+const aiMaxDaily = document.getElementById('aiMaxDaily');
 const saveSettings = document.getElementById('saveSettings');
 const settingsSaveStatus = document.getElementById('settingsSaveStatus');
 const settingsBtn = document.getElementById('settingsBtn');
@@ -118,6 +122,10 @@ async function loadSettings() {
   webpUploadMaxMb.value = String(body.webp_upload_max_mb || 20);
   svgUploadMaxMb.value = String(body.svg_upload_max_mb || 1);
   cloudflareApiToken.value = body.cloudflare_api_token || '';
+  aiEnabled.checked = Boolean(body.ai_enabled);
+  aiVisionModel.value = body.ai_model || '@cf/meta/llama-3.2-11b-vision-instruct';
+  aiTextModel.value = body.ai_text_model || '@cf/meta/llama-3.1-8b-fast-v2';
+  aiMaxDaily.value = String(body.ai_max_daily || 200);
   syncCloudflareTokenMeta(body.cloudflare_api_token_source || 'missing');
   syncWebpParamVisibility();
   settingsSaveStatus.textContent = '设置已加载';
@@ -141,6 +149,10 @@ async function saveUploadSettings() {
       webp_upload_max_mb: Number(webpUploadMaxMb.value) || 20,
       svg_upload_max_mb: Number(svgUploadMaxMb.value) || 1,
       cloudflare_api_token: cloudflareApiToken.value || '',
+      ai_enabled: aiEnabled.checked ? 1 : 0,
+      ai_model: aiVisionModel.value || '@cf/meta/llama-3.2-11b-vision-instruct',
+      ai_text_model: aiTextModel.value || '@cf/meta/llama-3.1-8b-fast-v2',
+      ai_max_daily: Number(aiMaxDaily.value) || 0,
     }),
   });
   const body = await res.json();

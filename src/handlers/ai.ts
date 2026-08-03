@@ -72,6 +72,39 @@ export async function scheduleAiAnalysis(
 
 export async function runAiAnalysis(env: Env, id: string): Promise<void> {
   try {
+    const settings = await getAiSettings(env);
+
+    // ai_enabled 关闭时不分析
+    if (!settings.ai_enabled) {
+      await env.DB.prepare(
+        `UPDATE images SET ai_status = 'disabled', ai_processed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`
+      )
+        .bind(id)
+        .run();
+      return;
+    }
+
+    // ai_max_daily 限额检查（按当天已分析数量）
+    if (settings.ai_max_daily > 0) {
+      const todayStart = new Date();
+      todayStart.setUTCHours(0, 0, 0, 0);
+      const countRow = await env.DB.prepare(
+        `SELECT COUNT(*) AS total FROM images
+         WHERE ai_processed_at >= ? AND ai_status IN ('done', 'failed')`
+      )
+        .bind(todayStart.toISOString())
+        .first<{ total: number | string }>();
+      const todayCount = Number(countRow?.total ?? 0);
+      if (todayCount >= settings.ai_max_daily) {
+        await env.DB.prepare(
+          `UPDATE images SET ai_status = 'quota_exceeded', ai_processed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`
+        )
+          .bind(id)
+          .run();
+        return;
+      }
+    }
+
     // 标记处理中
     await env.DB.prepare(
       `UPDATE images SET ai_status = 'processing', ai_processed_at = NULL WHERE id = ?`
@@ -98,16 +131,13 @@ export async function runAiAnalysis(env: Env, id: string): Promise<void> {
 
     const bytes = new Uint8Array(await obj.arrayBuffer());
 
-    // 获取配置的模型
-    const settings = await getAiSettings(env);
-
-    const result = await analyzeImage(env, bytes, row.mime_type, AI_MODELS.vision);
+    const result = await analyzeImage(env, bytes, row.mime_type, settings.ai_model || AI_MODELS.vision);
 
     // 用文本 LLM 从描述生成标签（更可靠的关键词提取）
     let tags = "";
     let tagError = "";
     try {
-      tags = await generateTagsFromDescription(env, result.description);
+      tags = await generateTagsFromDescription(env, result.description, settings.ai_text_model);
       if (!tags) {
         tagError = "标签生成失败(空)";
         console.error(`[ai] ${id} tag generation returned empty`);
@@ -138,13 +168,15 @@ export async function runAiAnalysis(env: Env, id: string): Promise<void> {
   }
 }
 
-async function getAiSettings(env: Env): Promise<{ ai_model: string; ai_enabled: number }> {
+async function getAiSettings(env: Env): Promise<{ ai_model: string; ai_text_model: string; ai_enabled: number; ai_max_daily: number }> {
   const row = await env.DB.prepare(
-    `SELECT ai_model, ai_enabled FROM configuration WHERE id = 1`
-  ).first<{ ai_model: string; ai_enabled: number }>();
+    `SELECT ai_model, ai_text_model, ai_enabled, ai_max_daily FROM configuration WHERE id = 1`
+  ).first<{ ai_model: string; ai_text_model: string; ai_enabled: number; ai_max_daily: number }>();
   return {
     ai_model: row?.ai_model || "@cf/meta/llama-3.2-11b-vision-instruct",
+    ai_text_model: row?.ai_text_model || "@cf/meta/llama-3.1-8b-fast-v2",
     ai_enabled: row?.ai_enabled ?? 1,
+    ai_max_daily: row?.ai_max_daily ?? 200,
   };
 }
 

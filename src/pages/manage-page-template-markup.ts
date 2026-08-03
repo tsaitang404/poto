@@ -139,6 +139,36 @@ export const managePageTemplateMarkup = `
               <p id="cloudflareApiTokenMeta" class="settings-help">留空则使用 Worker 默认注入的 Token；填写后优先使用这里保存的值。</p>
             </div>
           </div>
+
+          <p class="settings-section-title">AI 图片分析</p>
+          <div class="settings-grid">
+            <div class="settings-field">
+              <label class="checkbox-label">
+                <input id="aiEnabled" type="checkbox" />
+                启用 AI 自动分析（描述 / 标签 / OCR）
+              </label>
+              <p class="settings-help">上传图片后自动调用 Workers AI 视觉模型生成描述和标签。</p>
+            </div>
+            <div class="settings-field">
+              <label for="aiVisionModel">视觉模型（描述 + OCR）</label>
+              <select id="aiVisionModel" class="control">
+                <option value="@cf/meta/llama-3.2-11b-vision-instruct">Llama 3.2 11B Vision (推荐)</option>
+                <option value="@cf/moondream/moondream3.1-9B-A2B">Moondream 3.1 9B (轻量)</option>
+              </select>
+            </div>
+            <div class="settings-field">
+              <label for="aiTextModel">文本模型（标签总结）</label>
+              <select id="aiTextModel" class="control">
+                <option value="@cf/meta/llama-3.1-8b-fast-v2">Llama 3.1 8B Fast (推荐)</option>
+                <option value="@cf/meta/llama-3.3-70b-instruct-fp8-fast">Llama 3.3 70B (高质量)</option>
+              </select>
+            </div>
+            <div class="settings-field">
+              <label for="aiMaxDaily">每日分析上限（张）</label>
+              <input id="aiMaxDaily" class="control" type="number" min="0" max="10000" value="200" />
+              <p class="settings-help">0 表示不限。Workers AI 免费额度约 10,000 Neurons/天。</p>
+            </div>
+          </div>
           <div class="settings-actions">
             <button id="saveSettings" class="tool-btn" type="button">保存设置</button>
             <span id="settingsSaveStatus" class="settings-save-status">正在读取设置...</span>

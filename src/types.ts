@@ -50,6 +50,7 @@ export type ConfigurationRow = {
   cloudflare_api_token: string;
   ai_enabled: number;
   ai_model: string;
+  ai_text_model: string;
   ai_max_daily: number;
   updated_at: string;
 };
