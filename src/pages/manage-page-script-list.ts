@@ -185,7 +185,6 @@ async function rotateUploadToken() {
   latestToken = body.token || '';
   tokenValue.textContent = latestToken;
   tokenValue.style.display = latestToken ? 'block' : 'none';
-  copyToken.disabled = !latestToken;
   rotateToken.textContent = '轮换 Token';
   tokenMeta.textContent = 'Token 已轮换，最近轮换时间：' + fmtDate(body.rotated_at || '');
   status.textContent = 'Token 生成成功';
@@ -193,6 +192,7 @@ async function rotateUploadToken() {
 
 async function copyUploadToken() {
   if (!latestToken) {
+    status.textContent = '请先点击“生成 Token”';
     return;
   }
   try {

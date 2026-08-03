@@ -164,7 +164,7 @@ export const managePageTemplateMarkup = `
             <strong class="token-title">API Token</strong>
             <div class="token-actions">
               <button id="rotateToken" class="tool-btn" type="button">生成 Token</button>
-              <button id="copyToken" class="tool-btn" type="button" disabled>复制 Token</button>
+              <button id="copyToken" class="tool-btn" type="button">复制 Token</button>
             </div>
           </div>
           <p class="token-hint">用于无 Cookie 场景调用上传接口。请求头可用 <code>Authorization: Bearer &lt;token&gt;</code> 或 <code>X-API-Token: &lt;token&gt;</code>。</p>
