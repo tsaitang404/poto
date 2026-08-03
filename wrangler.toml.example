@@ -12,7 +12,7 @@ binding = "DB"
 database_name = "poto"
 database_id = "6ed106fe-7d51-4803-ba13-3ca6ff07c910"
 
-[[ai]]
+[ai]
 binding = "AI"
 
 [vars]
