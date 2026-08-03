@@ -5,6 +5,15 @@ import { createEnv, buildImage } from "./helpers/manage-api-mocks.mjs";
 
 const worker = await loadWorker();
 
+// 生成 HMAC 签名 cookie（对应修复后的认证逻辑）
+async function makeSignedCookie(env) {
+  const { sha256Hex } = await import("../src/lib/upload.ts");
+  const expiry = String(Date.now() + 86400 * 1000);
+  const sig = await sha256Hex(new TextEncoder().encode(`${env.ACCESS_PASSWORD}:${expiry}`));
+  return `poto_auth=${expiry}.${sig}`;
+}
+
+
 test("GET /manage redirects to /protected when unauthorized", async () => {
   const env = createEnv();
   const request = new Request("https://example.com/manage", { method: "GET" });
@@ -19,7 +28,7 @@ test("GET /manage returns HTML when authorized", async () => {
   const env = createEnv();
   const request = new Request("https://example.com/manage", {
     method: "GET",
-    headers: { Cookie: "poto_auth=1" },
+    headers: { Cookie: await makeSignedCookie(env) },
   });
 
   const response = await worker.fetch(request, env);
@@ -114,7 +123,7 @@ test("GET /api/stats returns platform-first summary and aggregates", async () =>
   try {
     const request = new Request("https://example.com/api/stats", {
       method: "GET",
-      headers: { Cookie: "poto_auth=1" },
+      headers: { Cookie: await makeSignedCookie(env) },
     });
 
     const response = await worker.fetch(request, env);
@@ -142,7 +151,7 @@ test("GET /api/stats returns config error when CLOUDFLARE_API_TOKEN is missing",
 
   const request = new Request("https://example.com/api/stats", {
     method: "GET",
-    headers: { Cookie: "poto_auth=1" },
+    headers: { Cookie: await makeSignedCookie(env) },
   });
 
   const response = await worker.fetch(request, env);
@@ -156,7 +165,7 @@ test("POST /logout clears auth cookie and redirects to /protected", async () => 
   const env = createEnv();
   const request = new Request("https://example.com/logout", {
     method: "POST",
-    headers: { Cookie: "poto_auth=1" },
+    headers: { Cookie: await makeSignedCookie(env) },
   });
 
   const response = await worker.fetch(request, env);
@@ -233,7 +242,7 @@ test("PUT /api/images/:id returns 400 for invalid JSON", async () => {
   const request = new Request("https://example.com/api/images/img-1", {
     method: "PUT",
     headers: {
-      Cookie: "poto_auth=1",
+      Cookie: await makeSignedCookie(env),
       "Content-Type": "application/json",
     },
     body: "not-json",
@@ -251,7 +260,7 @@ test("PUT /api/images/:id returns 400 when title is empty", async () => {
   const request = new Request("https://example.com/api/images/img-1", {
     method: "PUT",
     headers: {
-      Cookie: "poto_auth=1",
+      Cookie: await makeSignedCookie(env),
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ title: "   " }),
@@ -269,7 +278,7 @@ test("PUT /api/images/:id returns 404 when image not found", async () => {
   const request = new Request("https://example.com/api/images/missing", {
     method: "PUT",
     headers: {
-      Cookie: "poto_auth=1",
+      Cookie: await makeSignedCookie(env),
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ title: "new" }),
@@ -292,7 +301,7 @@ test("PUT /api/images/:id updates title successfully", async () => {
   const request = new Request("https://example.com/api/images/img-1", {
     method: "PUT",
     headers: {
-      Cookie: "poto_auth=1",
+      Cookie: await makeSignedCookie(env),
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ title: "new title" }),
@@ -325,7 +334,7 @@ test("DELETE /api/images/:id returns 404 when image not found", async () => {
   const env = createEnv();
   const request = new Request("https://example.com/api/images/missing", {
     method: "DELETE",
-    headers: { Cookie: "poto_auth=1" },
+    headers: { Cookie: await makeSignedCookie(env) },
   });
 
   const response = await worker.fetch(request, env);
@@ -349,7 +358,7 @@ test("DELETE /api/images/:id returns already_deleted when image is already delet
 
   const request = new Request("https://example.com/api/images/img-1", {
     method: "DELETE",
-    headers: { Cookie: "poto_auth=1" },
+    headers: { Cookie: await makeSignedCookie(env) },
   });
 
   const response = await worker.fetch(request, env);
@@ -375,7 +384,7 @@ test("DELETE /api/images/:id deletes from R2 and marks record deleted", async ()
 
   const request = new Request("https://example.com/api/images/img-1", {
     method: "DELETE",
-    headers: { Cookie: "poto_auth=1" },
+    headers: { Cookie: await makeSignedCookie(env) },
   });
 
   const response = await worker.fetch(request, env);

@@ -21,7 +21,7 @@ test("POST /api/upload returns existing image info when same sha256 is active", 
     },
   });
 
-  const request = makeUploadRequest(bytes, "same.webp", "image/webp");
+  const request = makeUploadRequest(bytes, "same.webp", "image/webp", await makeSignedCookie(env));
   const response = await worker.fetch(request, env);
   const body = await response.json();
 
@@ -51,7 +51,7 @@ test("POST /api/upload restores deleted record and writes file again", async () 
     },
   });
 
-  const request = makeUploadRequest(bytes, "again.webp", "image/webp");
+  const request = makeUploadRequest(bytes, "again.webp", "image/webp", await makeSignedCookie(env));
   const response = await worker.fetch(request, env);
   const body = await response.json();
 
@@ -64,16 +64,24 @@ test("POST /api/upload restores deleted record and writes file again", async () 
   assert.equal(env.__state.restoreCalls.length, 1);
 });
 
-function makeUploadRequest(bytes, filename, mimeType) {
+function makeUploadRequest(bytes, filename, mimeType, cookie = "poto_auth=1") {
   const form = new FormData();
   const file = new File([bytes], filename, { type: mimeType });
   form.set("image", file);
   form.set("title", "upload title");
   return new Request("http://localhost:8788/api/upload", {
     method: "POST",
-    headers: { Cookie: "poto_auth=1" },
+    headers: { Cookie: cookie },
     body: form,
   });
+}
+
+// 生成 HMAC 签名 cookie（对应修复后的认证逻辑）
+async function makeSignedCookie(env) {
+  const { sha256Hex } = await import("../src/lib/upload.ts");
+  const expiry = String(Date.now() + 86400 * 1000);
+  const sig = await sha256Hex(new TextEncoder().encode(`${env.ACCESS_PASSWORD}:${expiry}`));
+  return `poto_auth=${expiry}.${sig}`;
 }
 
 function createEnv(seed = { bySha: {} }) {

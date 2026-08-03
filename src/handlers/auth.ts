@@ -1,4 +1,4 @@
-import { generateApiToken, hashApiToken } from "../lib/auth";
+import { buildAuthCookieValue, generateApiToken, hashApiToken } from "../lib/auth";
 import { htmlResponse, json } from "../lib/http";
 import { sha256Hex } from "../lib/upload";
 import { renderProtectedPage } from "../pages/simple-pages";
@@ -58,7 +58,7 @@ export async function handleProtectedPost(request: Request, env: Env, origin: st
 
   const headers = new Headers();
   headers.set("Location", `${origin}/`);
-  headers.append("Set-Cookie", "poto_auth=1; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400");
+  headers.append("Set-Cookie", `poto_auth=${await buildAuthCookieValue(env)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`);
   return new Response(null, { status: 302, headers });
 }
 

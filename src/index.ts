@@ -32,7 +32,7 @@ function getImageId(pathname: string): string {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    const authed = isAuthed(request);
+    const authed = await isAuthed(request, env);
     const workerBaseUrl = getWorkerBaseUrl(request, env);
 
     if (request.method === "GET" && url.pathname === "/") {

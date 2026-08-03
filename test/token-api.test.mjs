@@ -4,6 +4,15 @@ import { loadWorker } from "./helpers/load-worker.mjs";
 
 const worker = await loadWorker();
 
+// 生成 HMAC 签名 cookie（对应修复后的认证逻辑）
+async function makeSignedCookie(env) {
+  const { sha256Hex } = await import("../src/lib/upload.ts");
+  const expiry = String(Date.now() + 86400 * 1000);
+  const sig = await sha256Hex(new TextEncoder().encode(`${env.ACCESS_PASSWORD}:${expiry}`));
+  return `poto_auth=${expiry}.${sig}`;
+}
+
+
 test("POST /api/token/rotate returns 401 when unauthorized", async () => {
   const env = createEnv();
   const request = new Request("https://example.com/api/token/rotate", { method: "POST" });
@@ -20,7 +29,7 @@ test("POST /api/token/rotate issues token and GET /api/token shows configured", 
 
   const rotateReq = new Request("https://example.com/api/token/rotate", {
     method: "POST",
-    headers: { Cookie: "poto_auth=1" },
+    headers: { Cookie: await makeSignedCookie(env) },
   });
   const rotateRes = await worker.fetch(rotateReq, env);
   const rotateBody = await rotateRes.json();
@@ -31,7 +40,7 @@ test("POST /api/token/rotate issues token and GET /api/token shows configured", 
 
   const infoReq = new Request("https://example.com/api/token", {
     method: "GET",
-    headers: { Cookie: "poto_auth=1" },
+    headers: { Cookie: await makeSignedCookie(env) },
   });
   const infoRes = await worker.fetch(infoReq, env);
   const infoBody = await infoRes.json();
@@ -47,7 +56,7 @@ test("GET /api/settings returns default upload settings", async () => {
 
   const response = await worker.fetch(new Request("https://example.com/api/settings", {
     method: "GET",
-    headers: { Cookie: "poto_auth=1" },
+    headers: { Cookie: await makeSignedCookie(env) },
   }), env);
   const body = await response.json();
 
@@ -69,7 +78,7 @@ test("PUT /api/settings saves upload settings", async () => {
   const response = await worker.fetch(new Request("https://example.com/api/settings", {
     method: "PUT",
     headers: {
-      Cookie: "poto_auth=1",
+      Cookie: await makeSignedCookie(env),
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -119,7 +128,7 @@ test("POST /api/upload enforces configured upload size limit", async () => {
 
   const response = await worker.fetch(new Request("https://example.com/api/upload", {
     method: "POST",
-    headers: { Cookie: "poto_auth=1" },
+    headers: { Cookie: await makeSignedCookie(env) },
     body: form,
   }), env);
   const body = await response.json();
@@ -133,7 +142,7 @@ test("POST /api/upload accepts Bearer token auth", async () => {
 
   const rotateReq = new Request("https://example.com/api/token/rotate", {
     method: "POST",
-    headers: { Cookie: "poto_auth=1" },
+    headers: { Cookie: await makeSignedCookie(env) },
   });
   const rotateRes = await worker.fetch(rotateReq, env);
   const rotateBody = await rotateRes.json();

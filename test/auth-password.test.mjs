@@ -4,6 +4,15 @@ import { loadWorker } from "./helpers/load-worker.mjs";
 
 const worker = await loadWorker();
 
+// 生成 HMAC 签名 cookie（对应修复后的认证逻辑）
+async function makeSignedCookie(env) {
+  const { sha256Hex } = await import("../src/lib/upload.ts");
+  const expiry = String(Date.now() + 86400 * 1000);
+  const sig = await sha256Hex(new TextEncoder().encode(`${env.ACCESS_PASSWORD}:${expiry}`));
+  return `poto_auth=${expiry}.${sig}`;
+}
+
+
 test("POST /protected initializes password from ACCESS_PASSWORD when DB is empty", async () => {
   const env = createEnv({ accessPasswordEnv: "abc123" });
   const form = new FormData();
@@ -16,7 +25,7 @@ test("POST /protected initializes password from ACCESS_PASSWORD when DB is empty
 
   assert.equal(response.status, 302);
   assert.equal(response.headers.get("location"), "https://example.com/");
-  assert.match(String(response.headers.get("set-cookie")), /poto_auth=1/);
+  assert.match(String(response.headers.get("set-cookie")), /poto_auth=\d+\.[a-f0-9]+/);
   assert.ok(env.__state.passwordRow);
 });
 
@@ -42,12 +51,13 @@ test("PUT /api/password updates DB password and new password can login", async (
       created_at: "2026-03-14T00:00:00.000Z",
       updated_at: "2026-03-14T00:00:00.000Z",
     },
+    accessPasswordEnv: "old-pass",
   });
 
   const updateResponse = await worker.fetch(new Request("https://example.com/api/password", {
     method: "PUT",
     headers: {
-      Cookie: "poto_auth=1",
+      Cookie: await makeSignedCookie(env),
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ password: "new-pass" }),
