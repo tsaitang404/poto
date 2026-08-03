@@ -36,6 +36,10 @@ function normalizeTags(raw: unknown): string {
       if (t.length > 8) return false;
       // 过滤含标点的句子
       if (/[。！？!?：:；;]/.test(t)) return false;
+      // 过滤描述性句子特征（数词+量词、判断词、方位/背景词）
+      if (/\d+[张个只条棵朵].{0,4}/.test(t)) return false;      // "一张白色圆形的"
+      if (/^(一张|一个|一只|一条|这幅|这张|图中|图片|画面|背景|前景|颜色|色彩|整体|画面中)/.test(t)) return false;
+      if (/是|有|在|着|了|的.{2}/.test(t) && t.length >= 5) return false;  // "背景是渐变色"
       return true;
     })
     .slice(0, 8);
@@ -47,7 +51,13 @@ function normalizeTags(raw: unknown): string {
     seen.add(key);
     return true;
   });
-  return uniq.join(",");
+  if (uniq.length) {
+    return uniq.join(",");
+  }
+  // 保底：如果全被过滤（空），提取描述中的名词性短词
+  const words = text.match(/[\u4e00-\u9fa5]{2,4}/g) || [];
+  const wordUniq = Array.from(new Set(words)).slice(0, 5);
+  return wordUniq.join(",");
 }
 
 /**
