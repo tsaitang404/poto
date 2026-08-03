@@ -110,10 +110,11 @@ export async function runAiAnalysis(env: Env, id: string): Promise<void> {
       .run();
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    // 失败原因存到 description 字段（方便排查），同时标记 failed
     await env.DB.prepare(
-      `UPDATE images SET ai_status = 'failed', ai_processed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`
+      `UPDATE images SET ai_status = 'failed', description = ?, ai_processed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`
     )
-      .bind(id)
+      .bind(`AI错误: ${msg.slice(0, 200)}`, id)
       .run();
     console.error(`[ai] ${id} failed: ${msg}`);
   }

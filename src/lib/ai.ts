@@ -41,21 +41,21 @@ export async function analyzeImage(
   const base64 = btoa(String.fromCharCode(...imageBytes));
 
   const messages = [
-    {
-      role: "user",
-      content: [
-        { type: "image_url", image_url: `data:${mimeType};base64,${base64}` },
-        { type: "text", text: prompt },
-      ],
-    },
+    { role: "system", content: "你是图片分析助手，严格输出 JSON。" },
+    { role: "user", content: prompt },
   ];
 
   let raw = "";
   if (env.AI) {
     // 使用 Workers AI binding（推荐，无需 token）
-    const result = await env.AI.run(model as never, { messages } as never);
-    const anyResult = result as unknown as { response?: string };
-    raw = anyResult?.response || "";
+    // 注意：llama vision 的 binding 用顶层 image 字段（base64），不是 content 数组
+    const aiBinding = env.AI as { run: (model: string, opts: unknown) => Promise<unknown> };
+    const result = await aiBinding.run(model, {
+      messages,
+      image: base64,
+    });
+    const anyResult = result as { response?: string; result?: string };
+    raw = anyResult?.response || anyResult?.result || "";
   } else {
     // fallback：直接用 fetch CF API（需要 env.CLOUDFLARE_API_TOKEN）
     if (!env.CLOUDFLARE_API_TOKEN || !env.CLOUDFLARE_ACCOUNT_ID) {
