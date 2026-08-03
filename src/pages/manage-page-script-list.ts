@@ -163,8 +163,8 @@ async function loadTokenInfo() {
     return;
   }
   if (!body.configured) {
-    rotateToken.textContent = '生成 Token';
-    tokenMeta.textContent = '当前未配置 Token。点击“生成 Token”创建。';
+    rotateToken.textContent = '轮换 Token';
+    tokenMeta.textContent = '当前未配置 Token。点击“轮换 Token”创建。';
     return;
   }
   rotateToken.textContent = '轮换 Token';
@@ -172,14 +172,14 @@ async function loadTokenInfo() {
 }
 
 async function rotateUploadToken() {
-  if (!confirm('确认生成新 Token 吗？旧 Token 将立即失效。')) {
+  if (!confirm('确认轮换 Token 吗？旧 Token 将立即失效。')) {
     return;
   }
-  tokenStatus.textContent = '正在生成 Token...';
+  tokenStatus.textContent = '正在轮换 Token...';
   const res = await fetch('/api/token/rotate', { method: 'POST' });
   const body = await res.json();
   if (!res.ok) {
-    tokenStatus.textContent = 'Token 生成失败: ' + (body.error || 'unknown');
+    tokenStatus.textContent = 'Token 轮换失败: ' + (body.error || 'unknown');
     return;
   }
   latestToken = body.token || '';
@@ -187,12 +187,12 @@ async function rotateUploadToken() {
   tokenValue.style.display = latestToken ? 'block' : 'none';
   rotateToken.textContent = '轮换 Token';
   tokenMeta.textContent = 'Token 已轮换，最近轮换时间：' + fmtDate(body.rotated_at || '');
-  tokenStatus.textContent = 'Token 生成成功';
+  tokenStatus.textContent = 'Token 轮换成功';
 }
 
 async function copyUploadToken() {
   if (!latestToken) {
-    tokenStatus.textContent = '请先点击“生成 Token”';
+    tokenStatus.textContent = '请先点击“轮换 Token”';
     return;
   }
   try {
