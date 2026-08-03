@@ -181,8 +181,19 @@ export async function generateTagsFromDescription(
       max_tokens: 100,
       temperature: 0.3,
     });
-    const anyResult = result as { response?: string; result?: string };
-    raw = (anyResult?.response || anyResult?.result || "") as string;
+    const anyResult = result as {
+      response?: string;
+      result?: string | { choices?: Array<{ message?: { content?: string } }> };
+    };
+    // 兼容多种返回格式：{response: string} / {result: string} / OpenAI 风格 {result: {choices:[{message:{content}}]}}
+    if (typeof anyResult?.response === "string") {
+      raw = anyResult.response;
+    } else if (typeof anyResult?.result === "string") {
+      raw = anyResult.result;
+    } else {
+      const r = anyResult?.result as { choices?: Array<{ message?: { content?: string } }> } | undefined;
+      raw = r?.choices?.[0]?.message?.content || "";
+    }
   } else {
     if (!env.CLOUDFLARE_API_TOKEN || !env.CLOUDFLARE_ACCOUNT_ID) {
       throw new Error("Workers AI binding 未配置且缺少 CF token");
