@@ -143,24 +143,7 @@ export default {
       return handleListImages(request, env);
     }
 
-    if (url.pathname.startsWith("/api/images/") && request.method === "GET") {
-      return handleGetImage(env, getImageId(url.pathname));
-    }
-
-    if (url.pathname.startsWith("/api/images/") && request.method === "DELETE") {
-      if (!authed) {
-        return json({ error: "unauthorized" }, 401);
-      }
-      return handleDeleteImage(env, getImageId(url.pathname));
-    }
-
-    if (url.pathname.startsWith("/api/images/") && request.method === "PUT") {
-      if (!authed) {
-        return json({ error: "unauthorized" }, 401);
-      }
-      return handleUpdateImage(request, env, getImageId(url.pathname));
-    }
-
+    // AI 路由必须放在 startsWith("/api/images/") 之前（更具体匹配优先）
     // AI 元数据：GET /api/images/:id/ai
     if (url.pathname.match(/^\/api\/images\/[^/]+\/ai$/) && request.method === "GET") {
       if (!authed) {
@@ -183,6 +166,24 @@ export default {
         return json({ error: "unauthorized" }, 401);
       }
       return handleReanalyze(env, getImageIdForAi(url.pathname), { waitUntil: (p) => ctx.waitUntil(p) });
+    }
+
+    if (url.pathname.startsWith("/api/images/") && request.method === "GET") {
+      return handleGetImage(env, getImageId(url.pathname));
+    }
+
+    if (url.pathname.startsWith("/api/images/") && request.method === "DELETE") {
+      if (!authed) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      return handleDeleteImage(env, getImageId(url.pathname));
+    }
+
+    if (url.pathname.startsWith("/api/images/") && request.method === "PUT") {
+      if (!authed) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      return handleUpdateImage(request, env, getImageId(url.pathname));
     }
 
     if (url.pathname.startsWith("/i/") && request.method === "GET") {
