@@ -1,12 +1,4 @@
 export const managePageScriptUtils = String.raw`
-    const body = await res.json();
-    if (!res.ok) {
-      status.textContent = '保存失败: ' + (body.error || 'unknown');
-      return;
-    }
-    status.textContent = '保存成功';
-  }
-
   if (action === 'view') {
     window.open('/i/' + id, '_blank', 'noreferrer');
     return;

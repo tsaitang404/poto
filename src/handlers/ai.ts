@@ -129,7 +129,9 @@ export async function runAiAnalysis(env: Env, id: string): Promise<void> {
       return;
     }
 
-    const bytes = new Uint8Array(await obj.arrayBuffer());
+    // R2ObjectBody 同时支持 arrayBuffer()（类型定义可能不完整，用 double cast）
+    const body = obj as unknown as { arrayBuffer(): Promise<ArrayBuffer> };
+    const bytes = new Uint8Array(await body.arrayBuffer());
 
     const result = await analyzeImage(env, bytes, row.mime_type, settings.ai_model || AI_MODELS.vision);
 

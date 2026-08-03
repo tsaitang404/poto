@@ -165,7 +165,8 @@ export default {
       if (!authed) {
         return json({ error: "unauthorized" }, 401);
       }
-      return handleReanalyze(env, getImageIdForAi(url.pathname), { waitUntil: (p) => ctx.waitUntil(p) });
+      const reanalyzeCtx = ctx ? { waitUntil: (p: Promise<unknown>) => ctx.waitUntil(p) } : undefined;
+      return handleReanalyze(env, getImageIdForAi(url.pathname), reanalyzeCtx);
     }
 
     if (url.pathname.startsWith("/api/images/") && request.method === "GET") {
