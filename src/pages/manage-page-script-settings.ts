@@ -1,5 +1,15 @@
 export const managePageScriptSettings = String.raw`
 
+// 全局错误捕获：任何 JS 错误显示在 status 栏，避免"点了没反应"
+window.addEventListener('error', function (e) {
+  var st = document.getElementById('status');
+  if (st) st.textContent = 'JS 错误: ' + (e.message || 'unknown');
+});
+window.addEventListener('unhandledrejection', function (e) {
+  var st = document.getElementById('status');
+  if (st) st.textContent = '异步错误: ' + String(e.reason || '');
+});
+
 const list = document.getElementById('list');
 const status = document.getElementById('status');
 const filter = document.getElementById('filter');
