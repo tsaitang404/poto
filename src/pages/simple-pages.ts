@@ -1,6 +1,28 @@
 import { escapeAttr, escapeHtml } from "../lib/text";
 
-export function renderViewPage(image: { id: string; title: string; public_url: string; created_at: string }): string {
+export function renderViewPage(image: {
+  id: string;
+  title: string;
+  public_url: string;
+  created_at: string;
+  description?: string;
+  tags?: string;
+  ocr_text?: string;
+}): string {
+  const desc = String(image.description || "").trim();
+  const tags = String(image.tags || "").trim();
+  const ocr = String(image.ocr_text || "").trim();
+  const tagHtml = tags
+    ? '<div class="ai-block"><div class="ai-label">🏷️ 标签</div><div class="tags">' +
+      tags.split(",").map((t) => '<span class="tag">' + escapeHtml(t.trim()) + "</span>").join("") +
+      "</div></div>"
+    : "";
+  const descHtml = desc
+    ? '<div class="ai-block"><div class="ai-label">📝 描述</div><div class="desc">' + escapeHtml(desc) + "</div></div>"
+    : "";
+  const ocrHtml = ocr
+    ? '<div class="ai-block"><div class="ai-label">📄 OCR 文字</div><pre class="ocr">' + escapeHtml(ocr) + "</pre></div>"
+    : "";
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -34,6 +56,46 @@ export function renderViewPage(image: { id: string; title: string; public_url: s
       word-break: break-all;
       cursor: pointer;
     }
+    .ai-block {
+      margin-top: 12px;
+      padding: 10px;
+      border-radius: 8px;
+      background: #faf8f5;
+      border: 1px solid #ece7df;
+    }
+    .ai-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #6b5ce7;
+      margin-bottom: 6px;
+    }
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tag {
+      display: inline-block;
+      background: rgba(107, 92, 231, 0.12);
+      color: #6b5ce7;
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-size: 12px;
+    }
+    .desc {
+      font-size: 13px;
+      line-height: 1.6;
+      color: #444;
+    }
+    .ocr {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #555;
+    }
+    small { display: block; margin-top: 8px; color: #999; }
   </style>
 </head>
 <body>
@@ -41,6 +103,9 @@ export function renderViewPage(image: { id: string; title: string; public_url: s
     <h2>${escapeHtml(image.title)}</h2>
     <img src="${escapeAttr(image.public_url)}" alt="${escapeAttr(image.title)}" />
     <div class="url" id="copy">${escapeHtml(image.public_url)}</div>
+    ${descHtml}
+    ${tagHtml}
+    ${ocrHtml}
     <small>上传时间: ${escapeHtml(image.created_at)}</small>
   </main>
   <script>

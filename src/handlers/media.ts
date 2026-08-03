@@ -274,10 +274,10 @@ export async function handleUpdateImage(request: Request, env: Env, id: string):
 
 export async function handleViewPage(env: Env, id: string): Promise<Response> {
   const row = await env.DB.prepare(
-    "SELECT id, title, public_url, created_at FROM images WHERE id = ? AND deleted_at IS NULL"
+    "SELECT id, title, public_url, created_at, description, tags, ocr_text FROM images WHERE id = ? AND deleted_at IS NULL"
   )
     .bind(id)
-    .first<{ id: string; title: string; public_url: string; created_at: string }>();
+    .first<{ id: string; title: string; public_url: string; created_at: string; description: string; tags: string; ocr_text: string }>();
 
   if (!row) {
     return htmlResponse("<h2>Not Found</h2>", 404);
