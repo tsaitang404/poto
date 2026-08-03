@@ -36,6 +36,11 @@ function getImageId(pathname: string): string {
   return pathname.split("/").pop() ?? "";
 }
 
+function getImageIdForAi(pathname: string): string {
+  const parts = pathname.split("/").filter(Boolean);
+  return parts[parts.length - 2] ?? "";
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -161,7 +166,7 @@ export default {
       if (!authed) {
         return json({ error: "unauthorized" }, 401);
       }
-      return handleGetAiMeta(env, getImageId(url.pathname));
+      return handleGetAiMeta(env, getImageIdForAi(url.pathname));
     }
 
     // AI 元数据编辑：PUT /api/images/:id/ai
@@ -169,7 +174,7 @@ export default {
       if (!authed) {
         return json({ error: "unauthorized" }, 401);
       }
-      return handleUpdateAiMeta(env, getImageId(url.pathname), await request.json().catch(() => ({})));
+      return handleUpdateAiMeta(env, getImageIdForAi(url.pathname), await request.json().catch(() => ({})));
     }
 
     // AI 重新分析：POST /api/images/:id/ai
@@ -177,7 +182,7 @@ export default {
       if (!authed) {
         return json({ error: "unauthorized" }, 401);
       }
-      return handleReanalyze(env, getImageId(url.pathname), { waitUntil: (p) => ctx.waitUntil(p) });
+      return handleReanalyze(env, getImageIdForAi(url.pathname), { waitUntil: (p) => ctx.waitUntil(p) });
     }
 
     if (url.pathname.startsWith("/i/") && request.method === "GET") {
