@@ -1,6 +1,6 @@
 // 用途：poto AI 元数据处理（描述/标签/OCR）
 // 创建时间：2026-08-03  opencode
-import { analyzeImage } from "../lib/ai";
+import { analyzeImage, generateTagsFromDescription } from "../lib/ai";
 import { json } from "../lib/http";
 import type { Env, ImageRow } from "../types";
 
@@ -103,10 +103,19 @@ export async function runAiAnalysis(env: Env, id: string): Promise<void> {
 
     const result = await analyzeImage(env, bytes, row.mime_type, settings.ai_model);
 
+    // 用文本 LLM 从描述生成标签（更可靠的关键词提取）
+    let tags = "";
+    try {
+      tags = await generateTagsFromDescription(env, result.description);
+    } catch (tagErr) {
+      console.error(`[ai] ${id} tag generation failed: ${tagErr}`);
+      tags = "";
+    }
+
     await env.DB.prepare(
       `UPDATE images SET description = ?, tags = ?, ocr_text = ?, ai_status = 'done', ai_processed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`
     )
-      .bind(result.description, result.tags, result.ocrText, id)
+      .bind(result.description, tags || result.tags, result.ocrText, id)
       .run();
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

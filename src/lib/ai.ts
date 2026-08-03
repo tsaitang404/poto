@@ -7,6 +7,7 @@ import type { Env } from "../types";
 export const AI_MODELS = {
   vision: "@cf/meta/llama-3.2-11b-vision-instruct",
   visionLight: "@cf/moondream/moondream3.1-9B-A2B",
+  text: "@cf/meta/llama-3.1-8b-instruct",
 } as const;
 
 export type AiResult = {
@@ -75,12 +76,10 @@ export async function analyzeImage(
   const prompt = `你是图片分析助手。请分析这张图片，只输出一个 JSON 对象，不要任何其他文字、不要 markdown 代码块、不要前后缀。
 
 必须严格使用这个格式（键名固定）：
-{"description":"一句话中文描述，不超过50字","tags":"3到5个独立的短标签，每个标签是1到4个字的关键词，用英文逗号分隔，不要用描述性句子","ocr":"图片中所有文字逐行提取，无文字则为空字符串"}
-
-标签必须是关键词（如：猫,夜景,美食,风景,人物），不要是句子。
+{"description":"一句话中文描述，不超过50字","ocr":"图片中所有文字逐行提取，无文字则为空字符串"}
 
 示例输出：
-{"description":"一只橘猫在窗台上晒太阳","tags":"猫,动物,宠物,窗台","ocr":""}
+{"description":"一只橘猫在窗台上晒太阳","ocr":""}
 
 现在分析这张图片：`;
 
@@ -156,8 +155,71 @@ export async function analyzeImage(
   return parseAiResponse(raw);
 }
 
-function parseAiResponse(raw: string): AiResult {
-  // 提取 JSON（可能包裹在 markdown 代码块里）
+/**
+ * 用文本 LLM 从描述总结标签（文本模型更擅长关键词提取）
+ */
+export async function generateTagsFromDescription(
+  env: Env,
+  description: string,
+  modelName?: string
+): Promise<string> {
+  const model = modelName || AI_MODELS.text;
+  const prompt = `根据下面的图片描述，提取 3-5 个中文标签。只输出标签，用英文逗号分隔，不要其他文字、不要编号、不要句号。
+
+描述：${description}
+
+标签：`;
+
+  let raw = "";
+  if (env.AI) {
+    const aiBinding = env.AI as { run: (model: string, opts: unknown) => Promise<unknown> };
+    const result = await aiBinding.run(model, {
+      messages: [
+        { role: "system", content: "你是图片标签生成助手，只输出逗号分隔的中文标签。" },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 100,
+      temperature: 0.3,
+    });
+    const anyResult = result as { response?: string; result?: string };
+    raw = (anyResult?.response || anyResult?.result || "") as string;
+  } else {
+    if (!env.CLOUDFLARE_API_TOKEN || !env.CLOUDFLARE_ACCOUNT_ID) {
+      throw new Error("Workers AI binding 未配置且缺少 CF token");
+    }
+    const resp = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/ai/run/${model}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [
+            { role: "system", content: "你是图片标签生成助手，只输出逗号分隔的中文标签。" },
+            { role: "user", content: prompt },
+          ],
+        }),
+      }
+    );
+    if (!resp.ok) {
+      throw new Error(`标签生成失败: ${resp.status}`);
+    }
+    const data = (await resp.json()) as { result?: { response?: string } };
+    raw = data?.result?.response || "";
+  }
+
+  // 清理输出：只保留逗号分隔的词
+  const tags = raw
+    .split(/[,，、\s]+/)
+    .map((t) => t.trim())
+    .filter((t) => t && t.length <= 8 && !/[。！？!?]/.test(t))
+    .slice(0, 8);
+  return Array.from(new Set(tags)).join(",");
+}
+
+function parseAiResponse(raw: string): AiResult {  // 提取 JSON（可能包裹在 markdown 代码块里）
   let jsonStr = raw.trim();
   const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fenceMatch) {

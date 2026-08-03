@@ -41,11 +41,6 @@ export const managePageScriptUtils = String.raw`
     setTimeout(function () { loadAiMeta(id); }, 1500);
     return;
   }
-
-  if (action === 'ai-save') {
-    await saveAiMeta(id);
-    return;
-  }
 });
 
 function fmtSize(bytes) {

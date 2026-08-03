@@ -147,7 +147,7 @@ function renderCurrent() {
         '<input type="text" maxlength="120" value="' + safeTitle + '" data-id="' + item.id + '" />' +
         '<div class="ai-box" data-id="' + item.id + '"><span class="ai-hint">AI 分析中...</span></div>' +
         '<div class="actions">' +
-          '<button class="btn" data-action="save" data-id="' + item.id + '">保存标题</button>' +
+          '<button class="btn" data-action="save" data-id="' + item.id + '">保存</button>' +
           '<button class="btn" data-action="ai" data-id="' + item.id + '">重新分析</button>' +
           '<button class="btn danger" data-action="delete" data-id="' + item.id + '">删除</button>' +
           '<button class="btn view-btn" data-action="view" data-id="' + item.id + '">查看</button>' +
@@ -180,9 +180,9 @@ async function loadAiMeta(id) {
     if (tags) html += '<div class="ai-tags">🏷️ ' + tags.split(',').map(function (t) { return '<span class="tag">' + escapeHtml(t.trim()) + '</span>'; }).join('') + '</div>';
     if (ocr) html += '<details class="ai-ocr"><summary>📄 OCR 文字</summary><pre>' + ocr + '</pre></details>';
     if (!html) html = '<span class="ai-hint">' + (d.ai_status === 'failed' ? 'AI 分析失败' : '暂无 AI 结果') + '</span>';
-    html += '<div class="ai-edit"><textarea data-ai-desc="' + id + '" placeholder="描述" rows="1">' + desc + '</textarea>' +
-      '<input type="text" data-ai-tags="' + id + '" placeholder="标签（逗号分隔）" value="' + tags + '" />' +
-      '<button class="btn" data-action="ai-save" data-id="' + id + '">保存 AI</button></div>';
+    // 编辑区：描述 + 标签输入（OCR 只读展示）
+    html += '<div class="ai-edit"><textarea data-ai-desc="' + id + '" placeholder="描述（可编辑）" rows="1">' + desc + '</textarea>' +
+      '<input type="text" data-ai-tags="' + id + '" placeholder="标签（逗号分隔）" value="' + tags + '" /></div>';
     box.innerHTML = html;
   } catch (e) {
     box.innerHTML = '<span class="ai-hint">AI 加载失败</span>';
@@ -201,7 +201,7 @@ async function saveAiMeta(id) {
     }),
   });
   const body = await res.json();
-  status.textContent = res.ok ? 'AI 元数据已保存' : '保存失败: ' + (body.error || 'unknown');
+  return res.ok;
 }
 
 async function loadTokenInfo() {
@@ -280,9 +280,24 @@ list.addEventListener('click', async (e) => {
       return;
     }
     status.textContent = '保存中...';
+    // 保存标题
     const res = await fetch('/api/images/' + id, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: nextTitle }),
     });
+    const body = await res.json();
+    if (!res.ok) {
+      status.textContent = '保存失败: ' + (body.error || 'unknown');
+      return;
+    }
+    // 保存 AI 元数据（描述/标签）
+    const aiOk = await saveAiMeta(id);
+    if (!aiOk) {
+      status.textContent = '标题已保存，AI 元数据保存失败';
+      return;
+    }
+    status.textContent = '保存成功';
+    await loadImages(currentPage);
+  }
 `;
