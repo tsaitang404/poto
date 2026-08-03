@@ -55,6 +55,13 @@ export async function analyzeImage(
       image: base64,
     });
     const anyResult = result as { response?: string; result?: string | object };
+    // 调试：把原始返回存起来（如果解析失败会显示）
+    let rawDump = "";
+    try {
+      rawDump = JSON.stringify(result);
+    } catch {
+      rawDump = String(result);
+    }
     // binding 返回结构可能是 {response: string} 或 {result: string} 或嵌套
     if (typeof anyResult?.response === "string") {
       raw = anyResult.response;
@@ -63,12 +70,26 @@ export async function analyzeImage(
     } else if (anyResult && typeof anyResult === "object") {
       // 尝试提取第一个字符串值（模型输出可能在嵌套字段）
       const obj = anyResult as Record<string, unknown>;
-      for (const v of Object.values(obj)) {
+      for (const key of Object.keys(obj)) {
+        const v = obj[key];
         if (typeof v === "string") {
           raw = v;
           break;
         }
+        if (v && typeof v === "object") {
+          const nested = v as Record<string, unknown>;
+          for (const k2 of Object.keys(nested)) {
+            if (typeof nested[k2] === "string") {
+              raw = String(nested[k2]);
+              break;
+            }
+          }
+          if (raw) break;
+        }
       }
+    }
+    if (!raw) {
+      raw = `RAW:${rawDump.slice(0, 300)}`;
     }
   } else {
     // fallback：直接用 fetch CF API（需要 env.CLOUDFLARE_API_TOKEN）
