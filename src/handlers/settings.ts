@@ -10,6 +10,9 @@ const DEFAULT_SETTINGS = {
   webp_upload_max_mb: 20,
   svg_upload_max_mb: 1,
   cloudflare_api_token: "",
+  ai_enabled: 1,
+  ai_model: "@cf/meta/llama-3.2-11b-vision-instruct",
+  ai_max_daily: 200,
 };
 
 export async function handleGetSettings(env: Env): Promise<Response> {
@@ -34,30 +37,36 @@ export async function handleUpdateSettings(request: Request, env: Env): Promise<
 
   await env.DB.prepare(
     `INSERT INTO configuration (
-       id,
-       webp_mode,
-       static_webp_quality,
-       gif_webp_quality,
-       static_source_max_mb,
-       gif_source_max_mb,
-       webp_upload_max_mb,
-       svg_upload_max_mb,
-       cloudflare_api_token,
-       updated_at
-     )
-     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET
-       webp_mode = excluded.webp_mode,
-       static_webp_quality = excluded.static_webp_quality,
-       gif_webp_quality = excluded.gif_webp_quality,
-       static_source_max_mb = excluded.static_source_max_mb,
-       gif_source_max_mb = excluded.gif_source_max_mb,
-       webp_upload_max_mb = excluded.webp_upload_max_mb,
-       svg_upload_max_mb = excluded.svg_upload_max_mb,
-       cloudflare_api_token = excluded.cloudflare_api_token,
-       updated_at = excluded.updated_at`
+      id,
+      webp_mode,
+      static_webp_quality,
+      gif_webp_quality,
+      static_source_max_mb,
+      gif_source_max_mb,
+      webp_upload_max_mb,
+      svg_upload_max_mb,
+      cloudflare_api_token,
+      ai_enabled,
+      ai_model,
+      ai_max_daily,
+      updated_at
+    )
+    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      webp_mode = excluded.webp_mode,
+      static_webp_quality = excluded.static_webp_quality,
+      gif_webp_quality = excluded.gif_webp_quality,
+      static_source_max_mb = excluded.static_source_max_mb,
+      gif_source_max_mb = excluded.gif_source_max_mb,
+      webp_upload_max_mb = excluded.webp_upload_max_mb,
+      svg_upload_max_mb = excluded.svg_upload_max_mb,
+      cloudflare_api_token = excluded.cloudflare_api_token,
+      ai_enabled = excluded.ai_enabled,
+      ai_model = excluded.ai_model,
+      ai_max_daily = excluded.ai_max_daily,
+      updated_at = excluded.updated_at`
   )
-    .bind(next.webp_mode, next.static_webp_quality, next.gif_webp_quality, next.static_source_max_mb, next.gif_source_max_mb, next.webp_upload_max_mb, next.svg_upload_max_mb, next.cloudflare_api_token, now)
+    .bind(next.webp_mode, next.static_webp_quality, next.gif_webp_quality, next.static_source_max_mb, next.gif_source_max_mb, next.webp_upload_max_mb, next.svg_upload_max_mb, next.cloudflare_api_token, next.ai_enabled, next.ai_model, next.ai_max_daily, now)
     .run();
 
   return json({
@@ -78,9 +87,12 @@ export async function getUploadSettings(env: Env): Promise<ConfigurationRow> {
             webp_upload_max_mb,
             svg_upload_max_mb,
               cloudflare_api_token,
+              ai_enabled,
+              ai_model,
+              ai_max_daily,
             updated_at
-       FROM configuration
-      WHERE id = 1`
+      FROM configuration
+     WHERE id = 1`
   ).first<ConfigurationRow>();
 
   return normalizeSettings(row);
@@ -96,6 +108,9 @@ function normalizeSettings(row: ConfigurationRow | null | undefined): Configurat
     webp_upload_max_mb: clampMegabytes(row?.webp_upload_max_mb, DEFAULT_SETTINGS.webp_upload_max_mb),
     svg_upload_max_mb: clampMegabytes(row?.svg_upload_max_mb, DEFAULT_SETTINGS.svg_upload_max_mb),
     cloudflare_api_token: normalizeToken(row?.cloudflare_api_token, DEFAULT_SETTINGS.cloudflare_api_token),
+    ai_enabled: normalizeInt(row?.ai_enabled, DEFAULT_SETTINGS.ai_enabled, 0, 1),
+    ai_model: normalizeModel(row?.ai_model, DEFAULT_SETTINGS.ai_model),
+    ai_max_daily: normalizeInt(row?.ai_max_daily, DEFAULT_SETTINGS.ai_max_daily, 1, 10000),
     updated_at: row?.updated_at ?? "",
   };
 }
@@ -111,7 +126,26 @@ function sanitizeSettings(payload: unknown, fallback: ConfigurationRow): Omit<Co
     webp_upload_max_mb: clampMegabytes(data.webp_upload_max_mb, fallback.webp_upload_max_mb),
     svg_upload_max_mb: clampMegabytes(data.svg_upload_max_mb, fallback.svg_upload_max_mb),
     cloudflare_api_token: normalizeToken(data.cloudflare_api_token, fallback.cloudflare_api_token),
+    ai_enabled: normalizeInt(data.ai_enabled, fallback.ai_enabled, 0, 1),
+    ai_model: normalizeModel(data.ai_model, fallback.ai_model),
+    ai_max_daily: normalizeInt(data.ai_max_daily, fallback.ai_max_daily, 1, 10000),
   };
+}
+
+function normalizeInt(value: unknown, fallback: number, min: number, max: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return fallback;
+  }
+  return Math.min(max, Math.max(min, Math.round(n)));
+}
+
+function normalizeModel(value: unknown, fallback: string): string {
+  const s = String(value ?? "").trim();
+  if (!s) {
+    return fallback;
+  }
+  return s.slice(0, 200);
 }
 
 export function getEffectiveCloudflareApiToken(env: Env, settings?: ConfigurationRow | null): string {

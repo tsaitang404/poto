@@ -28,6 +28,24 @@ export const managePageScriptUtils = String.raw`
       await loadStats(true);
     }
   }
+
+  if (action === 'ai') {
+    status.textContent = '触发 AI 重新分析...';
+    const res = await fetch('/api/images/' + id + '/ai', { method: 'POST' });
+    const body = await res.json();
+    if (!res.ok) {
+      status.textContent = 'AI 触发失败: ' + (body.error || 'unknown');
+      return;
+    }
+    status.textContent = 'AI 重新分析已触发';
+    setTimeout(function () { loadAiMeta(id); }, 1500);
+    return;
+  }
+
+  if (action === 'ai-save') {
+    await saveAiMeta(id);
+    return;
+  }
 });
 
 function fmtSize(bytes) {

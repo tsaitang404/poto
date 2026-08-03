@@ -15,6 +15,12 @@ import {
   handleUpload,
   handleViewPage,
 } from "./handlers/media";
+import {
+  handleGetAiMeta,
+  handleReanalyze,
+  handleUpdateAiMeta,
+  scheduleAiAnalysis,
+} from "./handlers/ai";
 import { handleGetSettings, handleUpdateSettings } from "./handlers/settings";
 import { handleGetStats } from "./handlers/stats";
 import { isAuthed, isUploadAuthed } from "./lib/auth";
@@ -24,13 +30,14 @@ import { renderManagePage } from "./pages/manage-page";
 import { renderUploadPage } from "./pages/upload-page";
 import { renderProtectedPage } from "./pages/simple-pages";
 import type { Env } from "./types";
+import type { ExecutionContext } from "@cloudflare/workers-types";
 
 function getImageId(pathname: string): string {
   return pathname.split("/").pop() ?? "";
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const authed = await isAuthed(request, env);
     const workerBaseUrl = getWorkerBaseUrl(request, env);
@@ -62,7 +69,20 @@ export default {
     }
 
     if (url.pathname === "/api/upload" && request.method === "POST") {
-      return handleUpload(request, env, workerBaseUrl, await isUploadAuthed(request, env));
+      const allowed = await isUploadAuthed(request, env);
+      const res = await handleUpload(request, env, workerBaseUrl, allowed);
+      // 上传成功后异步触发 AI 分析（仅生产环境有 ctx 时；测试无 ctx 跳过）
+      if ((res.status === 200 || res.status === 201) && ctx) {
+        try {
+          const body = await res.clone().json();
+          if (body?.id) {
+            scheduleAiAnalysis({ waitUntil: (p) => ctx.waitUntil(p) }, env, body.id);
+          }
+        } catch {
+          // 忽略解析失败（响应已返回）
+        }
+      }
+      return res;
     }
 
     if (url.pathname === "/api/token" && request.method === "GET") {
@@ -134,6 +154,30 @@ export default {
         return json({ error: "unauthorized" }, 401);
       }
       return handleUpdateImage(request, env, getImageId(url.pathname));
+    }
+
+    // AI 元数据：GET /api/images/:id/ai
+    if (url.pathname.match(/^\/api\/images\/[^/]+\/ai$/) && request.method === "GET") {
+      if (!authed) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      return handleGetAiMeta(env, getImageId(url.pathname));
+    }
+
+    // AI 元数据编辑：PUT /api/images/:id/ai
+    if (url.pathname.match(/^\/api\/images\/[^/]+\/ai$/) && request.method === "PUT") {
+      if (!authed) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      return handleUpdateAiMeta(env, getImageId(url.pathname), await request.json().catch(() => ({})));
+    }
+
+    // AI 重新分析：POST /api/images/:id/ai
+    if (url.pathname.match(/^\/api\/images\/[^/]+\/ai$/) && request.method === "POST") {
+      if (!authed) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      return handleReanalyze(env, getImageId(url.pathname), { waitUntil: (p) => ctx.waitUntil(p) });
     }
 
     if (url.pathname.startsWith("/i/") && request.method === "GET") {

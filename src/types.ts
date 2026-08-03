@@ -47,5 +47,8 @@ export type ConfigurationRow = {
   webp_upload_max_mb: number;
   svg_upload_max_mb: number;
   cloudflare_api_token: string;
+  ai_enabled: number;
+  ai_model: string;
+  ai_max_daily: number;
   updated_at: string;
 };

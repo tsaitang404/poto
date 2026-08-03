@@ -144,6 +144,71 @@ export const managePageTemplateStyleComponents = `
       min-height: 16px;
       color: var(--muted);
     }
+    .ai-box {
+      margin-top: 8px;
+      padding: 8px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.03);
+      border: 1px dashed var(--line);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .ai-hint {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .ai-desc {
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .ai-tags {
+      margin-bottom: 4px;
+    }
+    .tag {
+      display: inline-block;
+      background: rgba(107, 92, 231, 0.12);
+      color: #6b5ce7;
+      border-radius: 4px;
+      padding: 1px 6px;
+      margin-right: 4px;
+      font-size: 11px;
+    }
+    .ai-ocr summary {
+      cursor: pointer;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .ai-ocr pre {
+      margin: 0;
+      padding: 6px;
+      background: rgba(0, 0, 0, 0.04);
+      border-radius: 6px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      font-size: 11px;
+    }
+    .ai-edit {
+      margin-top: 6px;
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .ai-edit textarea {
+      width: 100%;
+      min-height: 24px;
+      font-size: 12px;
+      padding: 4px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+    }
+    .ai-edit input {
+      flex: 1;
+      min-width: 120px;
+      font-size: 12px;
+      padding: 4px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+    }
     .item {
       border: 1px solid var(--line);
       border-radius: 12px;
