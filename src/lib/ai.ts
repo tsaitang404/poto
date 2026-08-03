@@ -7,7 +7,7 @@ import type { Env } from "../types";
 export const AI_MODELS = {
   vision: "@cf/meta/llama-3.2-11b-vision-instruct",
   visionLight: "@cf/moondream/moondream3.1-9B-A2B",
-  text: "@cf/meta/llama-3.1-8b-instruct",
+  text: "@cf/meta/llama-3.1-8b-fast-v2",
 } as const;
 
 export type AiResult = {
