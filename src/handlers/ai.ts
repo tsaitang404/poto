@@ -105,32 +105,26 @@ export async function runAiAnalysis(env: Env, id: string): Promise<void> {
 
     // 用文本 LLM 从描述生成标签（更可靠的关键词提取）
     let tags = "";
+    let tagError = "";
     try {
       tags = await generateTagsFromDescription(env, result.description);
       if (!tags) {
+        tagError = "标签生成失败(空)";
         console.error(`[ai] ${id} tag generation returned empty`);
-        // 记录到 description 前缀（调试用，可移除）
-        await env.DB.prepare(
-          `UPDATE images SET tags = ? WHERE id = ?`
-        )
-          .bind("标签生成失败(空)", id)
-          .run();
       }
     } catch (tagErr) {
-      const tagMsg = tagErr instanceof Error ? tagErr.message : String(tagErr);
-      console.error(`[ai] ${id} tag generation failed: ${tagMsg}`);
-      await env.DB.prepare(
-        `UPDATE images SET tags = ? WHERE id = ?`
-      )
-        .bind(`标签错误: ${tagMsg.slice(0, 100)}`, id)
-        .run();
+      tagError = tagErr instanceof Error ? tagErr.message : String(tagErr);
+      console.error(`[ai] ${id} tag generation failed: ${tagError}`);
       tags = "";
     }
+
+    // 如果标签生成失败，保留错误信息（便于排查），否则用生成结果
+    const finalTags = tagError ? `标签错误: ${tagError.slice(0, 100)}` : (tags || result.tags);
 
     await env.DB.prepare(
       `UPDATE images SET description = ?, tags = ?, ocr_text = ?, ai_status = 'done', ai_processed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`
     )
-      .bind(result.description, tags || result.tags, result.ocrText, id)
+      .bind(result.description, finalTags, result.ocrText, id)
       .run();
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
