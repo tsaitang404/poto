@@ -31,12 +31,15 @@ export async function analyzeImage(
 ): Promise<AiResult> {
   const model = modelName || AI_MODELS.vision;
 
-  const prompt = `你是图片分析助手。请分析这张图片，严格输出 JSON（不要 markdown 代码块）：
-{
-  "description": "用一句中文简要描述图片内容（不超过50字）",
-  "tags": "3-5个中文标签，用逗号分隔",
-  "ocr": "图片中的所有文字，逐行提取；如果没有文字则返回空字符串"
-}`;
+  const prompt = `你是图片分析助手。请分析这张图片，只输出一个 JSON 对象，不要任何其他文字、不要 markdown 代码块、不要前后缀。
+
+必须严格使用这个格式（键名固定）：
+{"description":"一句话中文描述，不超过50字","tags":"3到5个中文标签用逗号分隔","ocr":"图片中所有文字逐行提取，无文字则为空字符串"}
+
+示例输出：
+{"description":"一只橘猫在窗台上晒太阳","tags":"猫,动物,窗台,阳光","ocr":""}
+
+现在分析这张图片：`;
 
   const base64 = btoa(String.fromCharCode(...imageBytes));
 
@@ -53,15 +56,10 @@ export async function analyzeImage(
     const result = await aiBinding.run(model, {
       messages,
       image: base64,
+      max_tokens: 1024,
+      temperature: 0.2,
     });
     const anyResult = result as { response?: string; result?: string | object };
-    // 调试：把原始返回存起来（如果解析失败会显示）
-    let rawDump = "";
-    try {
-      rawDump = JSON.stringify(result);
-    } catch {
-      rawDump = String(result);
-    }
     // binding 返回结构可能是 {response: string} 或 {result: string} 或嵌套
     if (typeof anyResult?.response === "string") {
       raw = anyResult.response;
@@ -87,9 +85,6 @@ export async function analyzeImage(
           if (raw) break;
         }
       }
-    }
-    if (!raw) {
-      raw = `RAW:${rawDump.slice(0, 300)}`;
     }
   } else {
     // fallback：直接用 fetch CF API（需要 env.CLOUDFLARE_API_TOKEN）
@@ -140,10 +135,26 @@ function parseAiResponse(raw: string): AiResult {
       ocrText: parseJsonText(parsed.ocr),
     };
   } catch {
-    // JSON 解析失败，返回原始文本作为描述
+    // JSON 解析失败：尝试从纯文本提取
+    // 描述 = 第一行；标签 = 提取 # 后内容或逗号分隔词
+    const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean);
+    let description = lines[0] || "";
+    if (description.length > 100) {
+      description = description.slice(0, 100);
+    }
+    // 尝试找标签（#tag 格式）
+    const tagMatches = raw.match(/#[\w\u4e00-\u9fa5]+/g);
+    let tags = "";
+    if (tagMatches && tagMatches.length) {
+      tags = tagMatches.map((t) => t.replace(/^#/, "")).join(",");
+    } else {
+      // 尝试逗号分隔词作为标签
+      const words = description.split(/[,，、\s]+/).filter((w) => w && w.length >= 2);
+      tags = words.slice(0, 5).join(",");
+    }
     return {
-      description: raw.slice(0, 100),
-      tags: "",
+      description,
+      tags,
       ocrText: "",
     };
   }
