@@ -78,9 +78,9 @@ function makeUploadRequest(bytes, filename, mimeType, cookie = "poto_auth=1") {
 
 // 生成 HMAC 签名 cookie（对应修复后的认证逻辑）
 async function makeSignedCookie(env) {
-  const { sha256Hex } = await import("../src/lib/upload.ts");
+  const { createHash } = await import("node:crypto");
   const expiry = String(Date.now() + 86400 * 1000);
-  const sig = await sha256Hex(new TextEncoder().encode(`${env.ACCESS_PASSWORD}:${expiry}`));
+  const sig = createHash("sha256").update(`${env.ACCESS_PASSWORD}:${expiry}`).digest("hex");
   return `poto_auth=${expiry}.${sig}`;
 }
 
