@@ -107,8 +107,23 @@ export async function runAiAnalysis(env: Env, id: string): Promise<void> {
     let tags = "";
     try {
       tags = await generateTagsFromDescription(env, result.description);
+      if (!tags) {
+        console.error(`[ai] ${id} tag generation returned empty`);
+        // 记录到 description 前缀（调试用，可移除）
+        await env.DB.prepare(
+          `UPDATE images SET tags = ? WHERE id = ?`
+        )
+          .bind("标签生成失败(空)", id)
+          .run();
+      }
     } catch (tagErr) {
-      console.error(`[ai] ${id} tag generation failed: ${tagErr}`);
+      const tagMsg = tagErr instanceof Error ? tagErr.message : String(tagErr);
+      console.error(`[ai] ${id} tag generation failed: ${tagMsg}`);
+      await env.DB.prepare(
+        `UPDATE images SET tags = ? WHERE id = ?`
+      )
+        .bind(`标签错误: ${tagMsg.slice(0, 100)}`, id)
+        .run();
       tags = "";
     }
 
