@@ -20,6 +20,37 @@ function parseJsonText(text: string): string {
 }
 
 /**
+ * 规范化标签：只保留 1-6 字的短关键词，过滤描述性句子
+ */
+function normalizeTags(raw: unknown): string {
+  const text = String(raw || "").trim();
+  if (!text) {
+    return "";
+  }
+  const parts = text
+    .split(/[,，、;；\s]+/)
+    .map((t) => t.trim())
+    .filter((t) => {
+      if (!t) return false;
+      // 过滤长句（超过 8 字或含描述性词汇）
+      if (t.length > 8) return false;
+      // 过滤含标点的句子
+      if (/[。！？!?：:；;]/.test(t)) return false;
+      return true;
+    })
+    .slice(0, 8);
+  // 去重
+  const seen = new Set<string>();
+  const uniq = parts.filter((t) => {
+    const key = t.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return uniq.join(",");
+}
+
+/**
  * 调用 Workers AI 视觉模型，一次请求完成描述+标签+OCR
  * 使用单个 prompt 让模型输出结构化 JSON
  */
@@ -34,10 +65,12 @@ export async function analyzeImage(
   const prompt = `你是图片分析助手。请分析这张图片，只输出一个 JSON 对象，不要任何其他文字、不要 markdown 代码块、不要前后缀。
 
 必须严格使用这个格式（键名固定）：
-{"description":"一句话中文描述，不超过50字","tags":"3到5个中文标签用逗号分隔","ocr":"图片中所有文字逐行提取，无文字则为空字符串"}
+{"description":"一句话中文描述，不超过50字","tags":"3到5个独立的短标签，每个标签是1到4个字的关键词，用英文逗号分隔，不要用描述性句子","ocr":"图片中所有文字逐行提取，无文字则为空字符串"}
+
+标签必须是关键词（如：猫,夜景,美食,风景,人物），不要是句子。
 
 示例输出：
-{"description":"一只橘猫在窗台上晒太阳","tags":"猫,动物,窗台,阳光","ocr":""}
+{"description":"一只橘猫在窗台上晒太阳","tags":"猫,动物,宠物,窗台","ocr":""}
 
 现在分析这张图片：`;
 
@@ -131,7 +164,7 @@ function parseAiResponse(raw: string): AiResult {
     const parsed = JSON.parse(jsonStr);
     return {
       description: parseJsonText(parsed.description),
-      tags: parseJsonText(parsed.tags),
+      tags: normalizeTags(parsed.tags),
       ocrText: parseJsonText(parsed.ocr),
     };
   } catch {
