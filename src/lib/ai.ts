@@ -54,8 +54,22 @@ export async function analyzeImage(
       messages,
       image: base64,
     });
-    const anyResult = result as { response?: string; result?: string };
-    raw = anyResult?.response || anyResult?.result || "";
+    const anyResult = result as { response?: string; result?: string | object };
+    // binding 返回结构可能是 {response: string} 或 {result: string} 或嵌套
+    if (typeof anyResult?.response === "string") {
+      raw = anyResult.response;
+    } else if (typeof anyResult?.result === "string") {
+      raw = anyResult.result;
+    } else if (anyResult && typeof anyResult === "object") {
+      // 尝试提取第一个字符串值（模型输出可能在嵌套字段）
+      const obj = anyResult as Record<string, unknown>;
+      for (const v of Object.values(obj)) {
+        if (typeof v === "string") {
+          raw = v;
+          break;
+        }
+      }
+    }
   } else {
     // fallback：直接用 fetch CF API（需要 env.CLOUDFLARE_API_TOKEN）
     if (!env.CLOUDFLARE_API_TOKEN || !env.CLOUDFLARE_ACCOUNT_ID) {
