@@ -1,5 +1,6 @@
 // 用途：poto 图床 Workers AI 调用封装（描述/OCR/标签）
 // 创建时间：2026-08-03  opencode
+// 使用 Workers AI binding（env.AI），无需 API token
 
 import type { Env } from "../types";
 
@@ -39,35 +40,45 @@ export async function analyzeImage(
 
   const base64 = btoa(String.fromCharCode(...imageBytes));
 
-  const resp = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/ai/run/${model}`,
+  const messages = [
     {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "image_url", image_url: `data:${mimeType};base64,${base64}` },
-              { type: "text", text: prompt },
-            ],
-          },
-        ],
-      }),
+      role: "user",
+      content: [
+        { type: "image_url", image_url: `data:${mimeType};base64,${base64}` },
+        { type: "text", text: prompt },
+      ],
+    },
+  ];
+
+  let raw = "";
+  if (env.AI) {
+    // 使用 Workers AI binding（推荐，无需 token）
+    const result = await env.AI.run(model as never, { messages } as never);
+    const anyResult = result as unknown as { response?: string };
+    raw = anyResult?.response || "";
+  } else {
+    // fallback：直接用 fetch CF API（需要 env.CLOUDFLARE_API_TOKEN）
+    if (!env.CLOUDFLARE_API_TOKEN || !env.CLOUDFLARE_ACCOUNT_ID) {
+      throw new Error("Workers AI binding 未配置且缺少 CF token");
     }
-  );
-
-  if (!resp.ok) {
-    const errText = await resp.text();
-    throw new Error(`Workers AI 调用失败: ${resp.status} ${errText.slice(0, 200)}`);
+    const resp = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/ai/run/${model}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ messages }),
+      }
+    );
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error(`Workers AI 调用失败: ${resp.status} ${errText.slice(0, 200)}`);
+    }
+    const data = (await resp.json()) as { result?: { response?: string } };
+    raw = data?.result?.response || "";
   }
-
-  const data = (await resp.json()) as { result?: { response?: string } };
-  const raw = data?.result?.response || "";
 
   return parseAiResponse(raw);
 }

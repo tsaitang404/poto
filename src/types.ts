@@ -1,6 +1,7 @@
 export interface Env {
   DB: D1Database;
   R2_BUCKET: R2Bucket;
+  AI?: unknown;
   ACCESS_PASSWORD?: string;
   PUBLIC_BASE_URL?: string;
   WORKER_BASE_URL?: string;
