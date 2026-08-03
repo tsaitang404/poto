@@ -1,6 +1,6 @@
 // 用途：poto AI 元数据处理（描述/标签/OCR）
 // 创建时间：2026-08-03  opencode
-import { analyzeImage, generateTagsFromDescription } from "../lib/ai";
+import { AI_MODELS, analyzeImage, generateTagsFromDescription } from "../lib/ai";
 import { json } from "../lib/http";
 import type { Env, ImageRow } from "../types";
 
@@ -101,7 +101,7 @@ export async function runAiAnalysis(env: Env, id: string): Promise<void> {
     // 获取配置的模型
     const settings = await getAiSettings(env);
 
-    const result = await analyzeImage(env, bytes, row.mime_type, settings.ai_model);
+    const result = await analyzeImage(env, bytes, row.mime_type, AI_MODELS.vision);
 
     // 用文本 LLM 从描述生成标签（更可靠的关键词提取）
     let tags = "";

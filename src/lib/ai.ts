@@ -101,32 +101,18 @@ export async function analyzeImage(
       max_tokens: 1024,
       temperature: 0.2,
     });
-    const anyResult = result as { response?: string; result?: string | object };
-    // binding 返回结构可能是 {response: string} 或 {result: string} 或嵌套
+    const anyResult = result as {
+      response?: string;
+      result?: string | { choices?: Array<{ message?: { content?: string } }> };
+    };
+    // 兼容多种返回格式：{response: string} / {result: string} / OpenAI 风格 {result: {choices:[{message:{content}}]}}
     if (typeof anyResult?.response === "string") {
       raw = anyResult.response;
     } else if (typeof anyResult?.result === "string") {
       raw = anyResult.result;
-    } else if (anyResult && typeof anyResult === "object") {
-      // 尝试提取第一个字符串值（模型输出可能在嵌套字段）
-      const obj = anyResult as Record<string, unknown>;
-      for (const key of Object.keys(obj)) {
-        const v = obj[key];
-        if (typeof v === "string") {
-          raw = v;
-          break;
-        }
-        if (v && typeof v === "object") {
-          const nested = v as Record<string, unknown>;
-          for (const k2 of Object.keys(nested)) {
-            if (typeof nested[k2] === "string") {
-              raw = String(nested[k2]);
-              break;
-            }
-          }
-          if (raw) break;
-        }
-      }
+    } else {
+      const r = anyResult?.result as { choices?: Array<{ message?: { content?: string } }> } | undefined;
+      raw = r?.choices?.[0]?.message?.content || "";
     }
   } else {
     // fallback：直接用 fetch CF API（需要 env.CLOUDFLARE_API_TOKEN）
