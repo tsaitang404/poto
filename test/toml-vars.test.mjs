@@ -24,3 +24,9 @@ test("upsertTomlVar creates [vars] when absent", () => {
   const out = upsertTomlVar(src, "WORKER_BASE_URL", "https://a.workers.dev");
   assert.match(out, /\[vars\]\nWORKER_BASE_URL = \"https:\/\/a.workers.dev\"/);
 });
+
+test("deployment variable rewriting preserves optional Images binding", () => {
+  const src = 'name = "poto"\n[images]\nbinding = "IMAGES"\n[vars]\nSITE_TITLE = "Poto"\n';
+  const out = upsertTomlVar(upsertTomlVar(src, "WORKER_BASE_URL", "https://poto.example"), "PUBLIC_BASE_URL", "https://poto.example/files");
+  assert.match(out, /\[images\]\nbinding = "IMAGES"/);
+});

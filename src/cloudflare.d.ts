@@ -24,7 +24,14 @@ interface R2HttpMetadata {
   contentType?: string;
 }
 
-interface R2ObjectBody {
+interface R2Object {
+  size: number;
+  etag: string;
+  version: string;
+  httpMetadata?: R2HttpMetadata;
+}
+
+interface R2ObjectBody extends R2Object {
   body: ReadableStream | null;
   httpMetadata?: R2HttpMetadata;
 }
@@ -32,5 +39,6 @@ interface R2ObjectBody {
 interface R2Bucket {
   put(key: string, value: ArrayBuffer | ArrayBufferView | string, options?: R2PutOptions): Promise<R2PutResult | null>;
   get(key: string): Promise<R2ObjectBody | null>;
+  head(key: string): Promise<R2Object | null>;
   delete(key: string): Promise<void>;
 }

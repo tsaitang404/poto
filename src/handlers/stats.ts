@@ -237,6 +237,15 @@ async function getPlatformStats(env: Env) {
   };
 }
 
+type PlatformPayload = {
+  viewer?: { accounts?: Array<{
+    r2StorageAdaptiveGroups?: Array<{ max?: { payloadSize?: number; metadataSize?: number } }>;
+    r2OperationsAdaptiveGroups?: Array<{ dimensions?: { objectName?: string }; sum?: { requests?: number } }>;
+    d1AnalyticsAdaptiveGroups?: Array<{ sum?: { readQueries?: number; writeQueries?: number } }>;
+  }> };
+  result?: { file_size?: number };
+};
+
 async function queryGraphql(apiToken: string, query: string, variables: Record<string, unknown>) {
   return fetchCloudflareJson(apiToken, "/graphql", { query, variables });
 }
@@ -258,11 +267,11 @@ async function fetchCloudflareJson(apiToken: string, path: string, body?: unknow
     throw new Error(`cloudflare_http_${response.status}`);
   }
 
-  const payload = await response.json() as { success?: boolean; errors?: Array<{ message?: string }>; data?: unknown; result?: unknown };
+  const payload = await response.json() as { success?: boolean; errors?: Array<{ message?: string }>; data?: PlatformPayload; result?: { file_size?: number } };
   if (Array.isArray(payload.errors) && payload.errors.length > 0) {
     throw new Error(payload.errors.map((item) => item.message || "graphql_error").join("; "));
   }
-  return payload.data ? payload.data : payload;
+  return (payload.data ? payload.data : payload) as PlatformPayload;
 }
 
 function requireConfig(value: string | undefined, key: string): string {

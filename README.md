@@ -178,3 +178,107 @@ npm run deploy          # wrangler deploy
 
 ### v0.3.x
 - 基础图床功能（上传 / 管理 / Token / 设置 / 统计）
+
+## 动态缩略图（可选）
+
+原图 `/files/<R2 object key>` 的字节、MIME 和一年 `immutable` 缓存行为保持不变。
+新增 `?w=160`、`?w=320`、`?w=640`，固定输出 WebP，质量 80，等比缩小、不放大。
+GIF/动画 WebP 的缩略图固定为静态图；原图仍保留动画。SVG 不转换，保留原始安全响应头。
+只有单个 `w` 参数有效；重复、未知、非白名单参数统一返回 400，且不缓存。
+URL 编码后的等价值（如 `?%77=%31%36%30`）规范化为同一变体。
+仅从绑定的 R2 读取，不支持外部 URL、任意质量/高度/格式。源文件上限 10 MiB。
+
+### 配置与部署条件
+
+确认账号 Images 状态和额度后，在实际部署使用的 `wrangler.toml` 添加：
+
+```toml
+[images]
+binding = "IMAGES"
+```
+
+示例配置已启用该 binding，使用 Images Free，不会自动升级付费。
+如不使用缩略图，可注释 `[images]` 段。GitHub Actions 每次从 `wrangler.toml.example` 生成配置，模板中须保留该段。
+`ensure-worker-domain.mjs` 只插入/更新变量，`ensure-d1.mjs` 只更新数据库 ID；
+`deploy.mjs` 的路由写入也会保留 `[images]`。新增测试覆盖变量重写保留 binding。
+已通过锁定的 Wrangler 4.73.0 dry-run，能识别该配置；无须升级依赖。
+本地依赖安装若 sharp 被系统 libvips 干扰，可运行 `SHARP_IGNORE_GLOBAL_LIBVIPS=1 npm ci`。
+
+依据 [Images binding 官方文档](https://developers.cloudflare.com/images/optimization/binding/)，直接输入 R2 字节流，
+转换结果不会自动缓存。本实现显式使用 Workers Cache API，无须启用额外的自动缓存功能。
+[官方定价](https://developers.cloudflare.com/images/pricing/)（2026-10-25 核对）说明 Free 每月包含 5,000 个独立转换，
+超额的新转换可能返回 9422；本项目会回退原图，不自动购买额度。
+账号是否已启用 Images、所属套餐和剩余额度需要部署前在 Cloudflare 确认。
+
+### 缓存与故障行为
+
+- 变体缓存键包含请求 origin、解码后的完整 R2 key、R2 version/etag、宽度和转换策略版本。
+  编码等价的路径/参数不创建额外变体；不同图、宽度和对象版本互不混用。
+- 每次缩略图请求先 R2 HEAD，再查当前节点 Cache API。命中跳过 GET 和 Images 转换。
+  缓存保留 30 天；Cache API 是各数据中心本地缓存，可能提前驱逐，并发冷请求也可能重复转换。
+- 缩略图发给浏览器的策略为 `public, max-age=0, must-revalidate`，每次校验源对象。
+  删除后后续请求返回 404；替换产生新 version，不命中旧变体。
+  HEAD/GET 之间替换时回退原图，不写旧版本缓存。旧版本条目留待过期。
+  已发送的响应不追溯撤回；原始 URL 原有的一年 immutable 行为仍存在，替换原图建议换 key。
+  不要另外配置忽略 query 的 CDN Cache Everything 规则绕过 Worker 校验。
+- 缺 binding、非支持格式、源文件过大、额度耗尽、转换/输出流失败都会重新读取原图并返回，
+  MIME 与原图一致，带 `no-store`，不污染成功变体缓存。缓存读取/写入失败不妨碍图片返回。
+- `X-Poto-Thumbnail: generated` / `hit` 表示转换成功 / 缓存命中；
+  `fallback-binding-missing`、`fallback-transform-failed`、`fallback-unsupported-type`、
+  `fallback-source-too-large`、`fallback-source-changed`、`fallback-empty-source` 表示回退原因。
+  不将服务错误详情或密钥放入响应。404 保持原来的 JSON 响应。
+
+### 博客接入示例（接口部署验收后再修改主题）
+
+完整 URL：
+
+```text
+https://poto.tsaitang.workers.dev/files/images/2026-08-03/e0ada2bdaa6644b5b830419b48a22131.png?w=160
+https://poto.tsaitang.workers.dev/files/images/2026-08-03/e0ada2bdaa6644b5b830419b48a22131.png?w=320
+```
+
+约 150px 宽卡片的 HTML（生产模板按原有规则转义属性）：
+
+```html
+<img
+  src="https://poto.tsaitang.workers.dev/files/images/2026-08-03/e0ada2bdaa6644b5b830419b48a22131.png?w=160"
+  srcset="https://poto.tsaitang.workers.dev/files/images/2026-08-03/e0ada2bdaa6644b5b830419b48a22131.png?w=160 160w, https://poto.tsaitang.workers.dev/files/images/2026-08-03/e0ada2bdaa6644b5b830419b48a22131.png?w=320 320w"
+  sizes="150px"
+  decoding="async"
+  loading="eager"
+  alt="文章封面"
+>
+```
+
+首屏封面用 `eager`（或省略 loading），折叠以下用 `lazy`。
+如 CSS 卡片宽度改变，`sizes` 必须同步实际布局；需要更高密度时可加 640w。
+模板应使用 URL API 的 `searchParams.set('w', '160')` 等构造各尺寸 URL，
+只对本服务 `/files/` 的受信任图片使用此接口；不要对带其他查询参数或第三方图片直接拼接参数。
+本次不修改 Trilium 线上主题。
+
+### 验证
+
+```sh
+npm test
+npm run typecheck
+node scripts/verify-thumbnails.mjs https://poto.tsaitang.workers.dev
+```
+
+最后一条必须在启用本版本和 binding 的服务上运行，会下载两张博客原图及三个实际 WebP 变体到
+`/tmp/poto-thumbnail-verification`，输出字节数和缩减比例，并拒绝将回退原图算作成功。
+随后以 150px 和高密度显示查看原图/变体清晰度，并重复请求观察 `hit`；跨节点不保证命中。
+当前自动测试使用 Images/Cache mocks，证明路由、转换参数、缓存和回退行为；
+Wrangler dry-run 只证明打包及 binding 配置兼容。
+2026-10-25 已获授权部署至 `https://poto.tsaitang.workers.dev`，版本
+`1b40e558-ebe2-48a3-bc9a-1f980ab23313`，Images binding 实测可用，未购买付费套餐。
+两张样例实际 Cloudflare 输出如下（由上述脚本下载，并用 sharp 读取尺寸；没有本地重编码）：
+
+- 样例 0：原图 322,889 字节、1024×512；160px 为 2,998 字节（减少 99.1%），
+  320px 为 9,086 字节（减少 97.2%），640px 为 29,022 字节（减少 91.0%）。
+- 样例 1：原图 31,433 字节、512×512；160px 为 3,542 字节（减少 88.7%），
+  320px 为 8,084 字节（减少 74.3%），640 变体为 12,924 字节且仍是 512×512，确认不放大。
+- 重复请求观察到 `X-Poto-Thumbnail: hit`。人工查看实际 160px 文件，主体和颜色保留，适合约 150px 的卡片；
+  高密度屏应通过 srcset 使用 320px。主题接入尚未执行。
+
+线上临时 R2 测试对象验证通过：缓存命中、替换后重新生成、SVG 安全回退、非法参数 400、删除后 404；临时对象已清理。
+部署后核对现有绑定和变量，除新增 IMAGES 外保持一致，密码 secret 保留。

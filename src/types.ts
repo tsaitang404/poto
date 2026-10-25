@@ -2,6 +2,13 @@ export interface Env {
   DB: D1Database;
   R2_BUCKET: R2Bucket;
   AI?: unknown;
+  IMAGES?: {
+    input(stream: ReadableStream): {
+      transform(options: { width: number; fit: "scale-down" }): {
+        output(options: { format: "image/webp"; quality: number; anim: false }): Promise<{ response(): Response }>;
+      };
+    };
+  };
   ACCESS_PASSWORD?: string;
   PUBLIC_BASE_URL?: string;
   WORKER_BASE_URL?: string;

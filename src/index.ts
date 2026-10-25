@@ -192,7 +192,10 @@ export default {
     }
 
     if (url.pathname.startsWith("/files/") && request.method === "GET") {
-      return handleServeFile(env, decodeURIComponent(url.pathname.slice("/files/".length)));
+      let objectKey: string;
+      try { objectKey = decodeURIComponent(url.pathname.slice("/files/".length)); }
+      catch { return json({ error: "invalid_key" }, 400); }
+      return handleServeFile(env, objectKey, request);
     }
 
     return json({ error: "not_found" }, 404);

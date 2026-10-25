@@ -1,3 +1,4 @@
+import { serveThumbnail } from "../lib/thumbnail";
 import { json, htmlResponse } from "../lib/http";
 import { getUploadSettings } from "./settings";
 import {
@@ -114,7 +115,12 @@ export async function handleUpload(request: Request, env: Env, workerBaseUrl: st
   }, 201);
 }
 
-export async function handleServeFile(env: Env, objectKey: string): Promise<Response> {
+export async function handleServeFile(env: Env, objectKey: string, request?: Request): Promise<Response> {
+  if (request) return serveThumbnail(request, env, objectKey, reason => serveOriginalFile(env, objectKey, reason));
+  return serveOriginalFile(env, objectKey);
+}
+
+async function serveOriginalFile(env: Env, objectKey: string, fallbackReason?: string): Promise<Response> {
   if (!objectKey) {
     return json({ error: "invalid_key" }, 400);
   }
@@ -130,6 +136,10 @@ export async function handleServeFile(env: Env, objectKey: string): Promise<Resp
   }
   headers.set("cache-control", "public, max-age=31536000, immutable");
   headers.set("x-content-type-options", "nosniff");
+  if (fallbackReason) {
+    headers.set("cache-control", "no-store");
+    headers.set("x-poto-thumbnail", `fallback-${fallbackReason}`);
+  }
   if (contentType === "image/svg+xml") {
     headers.set("content-security-policy", "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'");
   }

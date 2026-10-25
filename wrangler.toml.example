@@ -20,3 +20,8 @@ SITE_TITLE = "Poto"
 CLOUDFLARE_ACCOUNT_ID = "7831d21cea4fc12c509aaa9ca2d050a6"
 R2_BUCKET_NAME = "poto"
 D1_DATABASE_ID = "6ed106fe-7d51-4803-ba13-3ca6ff07c910"
+
+# Images Free supports R2 transformations; confirm account quota before deployment.
+# Comment out this section to disable thumbnails and serve originals.
+[images]
+binding = "IMAGES"
